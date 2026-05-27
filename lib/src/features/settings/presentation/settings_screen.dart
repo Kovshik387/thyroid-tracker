@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
 import '../../../core/domain/reference_range.dart';
+import '../../../shared/presentation/date_input_formatter.dart';
 import '../../../shared/presentation/screen_frame.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -29,9 +30,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   var _didSeed = false;
   var _medicationNotifications = true;
   var _doctorNotifications = true;
-  var _demoDataEnabled = true;
+  var _demoDataEnabled = false;
   var _demoSleepDataEnabled = false;
   var _demoWeightDataEnabled = false;
+  var _demoMedicationDataEnabled = false;
   DateTime? _birthDate;
   TimeOfDay _intakeTime = const TimeOfDay(hour: 8, minute: 0);
 
@@ -49,6 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _demoDataEnabled = appState.demoDataEnabled;
     _demoSleepDataEnabled = appState.demoSleepDataEnabled;
     _demoWeightDataEnabled = appState.demoWeightDataEnabled;
+    _demoMedicationDataEnabled = appState.demoMedicationDataEnabled;
     _birthDate = appState.userProfile?.birthDate;
     _birthDateController.text =
         _birthDate == null ? '' : DateFormat('dd.MM.yyyy').format(_birthDate!);
@@ -241,6 +244,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: _demoSleepDataEnabled,
                   onChanged: _toggleDemoSleepData,
                 ),
+                const Divider(height: 1),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Прием таблеток'),
+                  subtitle: const Text(
+                    'Заполнить историю приема за последние полгода',
+                  ),
+                  value: _demoMedicationDataEnabled,
+                  onChanged: _toggleDemoMedicationData,
+                ),
               ],
             ),
           ],
@@ -406,6 +419,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           value
               ? 'Тестовые данные веса добавлены'
               : 'Тестовые данные веса удалены',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleDemoMedicationData(bool value) async {
+    setState(() => _demoMedicationDataEnabled = value);
+    await AppScope.read(context).setDemoMedicationDataEnabled(value);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          value
+              ? 'Тестовые данные приема добавлены'
+              : 'Тестовые данные приема удалены',
         ),
       ),
     );
@@ -578,10 +608,7 @@ class _DateTextField extends StatelessWidget {
       controller: controller,
       keyboardType: TextInputType.datetime,
       textInputAction: TextInputAction.done,
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-        LengthLimitingTextInputFormatter(10),
-      ],
+      inputFormatters: const [DateInputFormatter()],
       decoration: InputDecoration(
         labelText: label,
         hintText: 'дд.мм.гггг',

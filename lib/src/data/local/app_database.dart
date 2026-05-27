@@ -59,7 +59,12 @@ class MedicationIntakeEntries extends Table {
 
   DateTimeColumn get date => dateTime()();
 
+  DateTimeColumn get takenAt => dateTime().nullable()();
+
   BoolColumn get taken => boolean()();
+
+  BoolColumn get countsForStreak =>
+      boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -178,7 +183,7 @@ class AppDatabase extends _$AppDatabase {
         );
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -205,6 +210,14 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 8) {
             await m.createTable(weightLogEntries);
+          }
+          if (from < 9) {
+            await m.addColumn(
+                medicationIntakeEntries, medicationIntakeEntries.takenAt);
+            await m.addColumn(
+              medicationIntakeEntries,
+              medicationIntakeEntries.countsForStreak,
+            );
           }
         },
       );
@@ -336,6 +349,12 @@ class AppDatabase extends _$AppDatabase {
       await (delete(medicationPlanEntries)..where((row) => row.id.equals(id)))
           .go();
     });
+  }
+
+  Future<void> deleteMedicationIntakesByIdPrefix(String prefix) {
+    return (delete(medicationIntakeEntries)
+          ..where((row) => row.id.like('$prefix%')))
+        .go();
   }
 
   Future<void> resetAll() {

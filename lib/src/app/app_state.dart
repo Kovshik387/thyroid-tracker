@@ -23,6 +23,7 @@ class AppState extends ChangeNotifier {
   final List<MedicalMedia> _medicalMedia = [];
   final List<SleepLog> _sleepLogs = [];
   final List<WeightLog> _weightLogs = [];
+  final List<MedicationIntake> _medicationIntakes = [];
   final Set<String> _takenMedicationDates = {};
   final Set<DateTime> _takenMedicationDays = {};
   UserProfile? _userProfile;
@@ -39,9 +40,10 @@ class AppState extends ChangeNotifier {
   var _freeT4Max = 22.0;
   var _freeT3Min = 3.1;
   var _freeT3Max = 6.8;
-  var _demoDataEnabled = true;
+  var _demoDataEnabled = false;
   var _demoSleepDataEnabled = false;
   var _demoWeightDataEnabled = false;
+  var _demoMedicationDataEnabled = false;
   var _isSeedingDemoData = false;
 
   bool get isLoaded => _isLoaded;
@@ -73,6 +75,8 @@ class AppState extends ChangeNotifier {
 
   bool get demoWeightDataEnabled => _demoWeightDataEnabled;
 
+  bool get demoMedicationDataEnabled => _demoMedicationDataEnabled;
+
   List<LabResult> get labs => List.unmodifiable(
         [..._labs]..sort((a, b) => a.date.compareTo(b.date)),
       );
@@ -94,6 +98,10 @@ class AppState extends ChangeNotifier {
 
   List<WeightLog> get weightLogs => List.unmodifiable(
         [..._weightLogs]..sort((a, b) => b.date.compareTo(a.date)),
+      );
+
+  List<MedicationIntake> get medicationIntakes => List.unmodifiable(
+        [..._medicationIntakes]..sort((a, b) => b.date.compareTo(a.date)),
       );
 
   Set<DateTime> get takenMedicationDays =>
@@ -277,12 +285,37 @@ class AppState extends ChangeNotifier {
 
   Future<void> markMedicationTakenToday(String medicationId) async {
     final now = DateTime.now();
+    await markMedicationTaken(
+      medicationId: medicationId,
+      date: now,
+      takenAt: now,
+    );
+  }
+
+  Future<void> markMedicationTaken({
+    required String medicationId,
+    required DateTime date,
+    DateTime? takenAt,
+  }) async {
+    final normalizedDate = _dateOnly(date);
+    final now = DateTime.now();
+    final today = _dateOnly(now);
+    final actualTakenAt = takenAt ??
+        DateTime(
+          normalizedDate.year,
+          normalizedDate.month,
+          normalizedDate.day,
+          now.hour,
+          now.minute,
+        );
     await _database.saveMedicationIntake(
       MedicationIntakeEntriesCompanion.insert(
-        id: _intakeKey(medicationId, now),
+        id: _intakeKey(medicationId, normalizedDate),
         planId: medicationId,
-        date: DateTime(now.year, now.month, now.day),
+        date: normalizedDate,
+        takenAt: Value(actualTakenAt),
         taken: true,
+        countsForStreak: Value(normalizedDate == today),
       ),
     );
     await _load();
@@ -357,6 +390,7 @@ class AppState extends ChangeNotifier {
     _medicalMedia.clear();
     _sleepLogs.clear();
     _weightLogs.clear();
+    _medicationIntakes.clear();
     _takenMedicationDates.clear();
     _takenMedicationDays.clear();
     _userProfile = null;
@@ -371,9 +405,10 @@ class AppState extends ChangeNotifier {
     _freeT4Max = 22.0;
     _freeT3Min = 3.1;
     _freeT3Max = 6.8;
-    _demoDataEnabled = true;
+    _demoDataEnabled = false;
     _demoSleepDataEnabled = false;
     _demoWeightDataEnabled = false;
+    _demoMedicationDataEnabled = false;
     _isLoaded = true;
     notifyListeners();
   }
@@ -444,9 +479,11 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> setDemoDataEnabled(bool enabled) async {
+    const demoLabDataVersion = '2';
     await _database.saveSetting('demoDataEnabled', enabled.toString());
     if (enabled) {
       await _seedDemoLabResults();
+      await _database.saveSetting('demoLabDataVersion', demoLabDataVersion);
     } else {
       await _database.deleteLabResultsByIdPrefix('demo-lab-');
     }
@@ -469,6 +506,17 @@ class AppState extends ChangeNotifier {
       await _seedDemoWeightLogs();
     } else {
       await _database.deleteWeightLogsByIdPrefix('demo-weight-');
+    }
+    await _load();
+  }
+
+  Future<void> setDemoMedicationDataEnabled(bool enabled) async {
+    await _database.saveSetting(
+        'demoMedicationDataEnabled', enabled.toString());
+    if (enabled) {
+      await _seedDemoMedicationIntakes();
+    } else {
+      await _database.deleteMedicationIntakesByIdPrefix('demo-intake-');
     }
     await _load();
   }
@@ -662,15 +710,20 @@ class AppState extends ChangeNotifier {
     _freeT4Max = double.tryParse(settings['freeT4Max'] ?? '') ?? 22.0;
     _freeT3Min = double.tryParse(settings['freeT3Min'] ?? '') ?? 3.1;
     _freeT3Max = double.tryParse(settings['freeT3Max'] ?? '') ?? 6.8;
-    _demoDataEnabled = settings['demoDataEnabled'] != 'false';
+    _demoDataEnabled = settings['demoDataEnabled'] == 'true';
     _demoSleepDataEnabled = settings['demoSleepDataEnabled'] == 'true';
     _demoWeightDataEnabled = settings['demoWeightDataEnabled'] == 'true';
+    _demoMedicationDataEnabled =
+        settings['demoMedicationDataEnabled'] == 'true';
 
+    const demoLabDataVersion = '2';
     if (_demoDataEnabled &&
         !_isSeedingDemoData &&
-        labs.every((lab) => !lab.id.startsWith('demo-lab-'))) {
+        (settings['demoLabDataVersion'] != demoLabDataVersion ||
+            labs.every((lab) => !lab.id.startsWith('demo-lab-')))) {
       _isSeedingDemoData = true;
       await _seedDemoLabResults();
+      await _database.saveSetting('demoLabDataVersion', demoLabDataVersion);
       _isSeedingDemoData = false;
       return _load();
     }
@@ -684,6 +737,12 @@ class AppState extends ChangeNotifier {
     if (_demoWeightDataEnabled &&
         weightLogs.every((log) => !log.id.startsWith('demo-weight-'))) {
       await _seedDemoWeightLogs();
+      return _load();
+    }
+
+    if (_demoMedicationDataEnabled &&
+        intakes.every((intake) => !intake.id.startsWith('demo-intake-'))) {
+      await _seedDemoMedicationIntakes();
       return _load();
     }
 
@@ -705,6 +764,9 @@ class AppState extends ChangeNotifier {
     _weightLogs
       ..clear()
       ..addAll(weightLogs.map(_weightLogFromRow));
+    _medicationIntakes
+      ..clear()
+      ..addAll(intakes.map(_medicationIntakeFromRow));
     _userProfile = profile == null ? null : _userProfileFromRow(profile);
     _takenMedicationDates
       ..clear()
@@ -714,7 +776,7 @@ class AppState extends ChangeNotifier {
       ..clear()
       ..addAll(
         intakes
-            .where((intake) => intake.taken)
+            .where((intake) => intake.taken && intake.countsForStreak)
             .map((intake) => _dateOnly(intake.date)),
       );
 
@@ -733,14 +795,14 @@ class AppState extends ChangeNotifier {
     await _database.deleteLabResultsByIdPrefix('demo-lab-');
 
     final today = _dateOnly(DateTime.now());
-    final start = DateTime(today.year, today.month - 18, today.day);
-    const stepDays = 5;
-    const totalDays = 540;
+    final start = DateTime(today.year, today.month - 30, today.day);
+    const stepDays = 14;
+    const totalDays = 900;
 
     for (var day = 0, index = 0; day <= totalDays; day += stepDays, index++) {
       final progress = day / totalDays;
-      final seasonal = _demoWave(index, 0.42);
-      final shortWave = _demoWave(index, 1.35) * 0.35;
+      final seasonal = _demoWave(index, 0.28) * 0.55;
+      final shortWave = _demoWave(index, 0.83) * 0.18;
       final therapyDrop = progress < 0.55 ? progress / 0.55 : 1.0;
       final recentDrift = progress < 0.78 ? 0.0 : (progress - 0.78) * 1.35;
 
@@ -847,6 +909,49 @@ class AppState extends ChangeNotifier {
       );
     }
   }
+
+  Future<void> _seedDemoMedicationIntakes() async {
+    await _database.deleteMedicationIntakesByIdPrefix('demo-intake-');
+
+    final plans = await _database.getMedicationPlans();
+    if (plans.isEmpty) {
+      return;
+    }
+
+    final plan = plans.first;
+    final today = _dateOnly(DateTime.now());
+    const totalDays = 180;
+    for (var day = totalDays, index = 0; day >= 0; day--, index++) {
+      if (index % 13 == 0 || index % 29 == 0) {
+        continue;
+      }
+      final date = today.subtract(Duration(days: day));
+      final routineDrift = index < 55 ? 28 : (index < 120 ? 12 : 4);
+      final waveOffset = (((index * 19) % 61) - 30);
+      final occasionalDelay = index % 17 == 0 ? 45 : 0;
+      final earlyCorrection = index > 130 && index % 9 == 0 ? -18 : 0;
+      final offsetMinutes =
+          routineDrift + waveOffset + occasionalDelay + earlyCorrection;
+      final takenAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        plan.intakeTime.hour,
+        plan.intakeTime.minute,
+      ).add(Duration(minutes: offsetMinutes));
+
+      await _database.saveMedicationIntake(
+        MedicationIntakeEntriesCompanion.insert(
+          id: 'demo-intake-$index',
+          planId: plan.id,
+          date: date,
+          takenAt: Value(takenAt),
+          taken: true,
+          countsForStreak: Value(date == today),
+        ),
+      );
+    }
+  }
 }
 
 double _demoWave(int index, double speed) {
@@ -888,6 +993,17 @@ WeightLog _weightLogFromRow(WeightLogEntry row) {
     date: row.date,
     weightKg: row.weightKg,
     comment: row.comment,
+  );
+}
+
+MedicationIntake _medicationIntakeFromRow(MedicationIntakeEntry row) {
+  return MedicationIntake(
+    id: row.id,
+    planId: row.planId,
+    date: row.date,
+    takenAt: row.takenAt,
+    taken: row.taken,
+    countsForStreak: row.countsForStreak,
   );
 }
 

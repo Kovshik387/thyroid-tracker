@@ -662,7 +662,17 @@ class _LabsChartCardState extends State<_LabsChartCard> {
                             curveSmoothness: 0.12,
                             preventCurveOverShooting: true,
                             dashArray: [6, 5],
-                            dotData: const FlDotData(show: true),
+                            dotData: FlDotData(
+                              show: true,
+                              getDotPainter: (spot, percent, barData, index) {
+                                return FlDotCirclePainter(
+                                  radius: index == 0 ? 0 : 4,
+                                  color: AppColors.amber,
+                                  strokeWidth: 2,
+                                  strokeColor: AppColors.surface,
+                                );
+                              },
+                            ),
                           ),
                       ],
                     ),
@@ -684,7 +694,7 @@ class _LabsChartCardState extends State<_LabsChartCard> {
           if (chartData.forecastSpots.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Прогноз построен только по последним двум значениям и может не отражать реальную динамику.',
+              'Прогноз рассчитан методом отношений к центрированной 12-месячной скользящей средней: сезонный индекс умножается на тренд последних 12 месяцев. Это ориентировочная оценка.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.muted,
                   ),
@@ -775,23 +785,22 @@ class _SingleMetricChartData {
       );
     }
 
+    final forecastSpots = _forecastSpots(
+      rawSpots,
+      startDate: start,
+    );
     final values = [
       range.min,
       range.max,
       ...rawSpots.map((spot) => spot.y),
+      ...forecastSpots.skip(1).map((spot) => spot.y),
     ];
     final minValue = values.reduce((a, b) => a < b ? a : b);
     final maxValue = values.reduce((a, b) => a > b ? a : b);
     final padding = ((maxValue - minValue).abs() * 0.18).clamp(1.0, 6.0);
-    final minY = minValue - padding;
+    final minY = (minValue - padding).clamp(0.0, double.infinity);
     final maxY = maxValue + padding;
     final dataMaxX = rawSpots.last.x;
-    final forecastSpots = _forecastSpots(
-      rawSpots,
-      minY: minY,
-      maxY: maxY,
-      visibleRangeX: dataMaxX,
-    );
     final maxX = [
       dataMaxX,
       if (forecastSpots.isNotEmpty) forecastSpots.last.x,
@@ -893,28 +902,173 @@ List<FlSpot> _sampleSpots(List<FlSpot> source, {required int maxPoints}) {
 
 List<FlSpot> _forecastSpots(
   List<FlSpot> source, {
-  required double minY,
-  required double maxY,
-  required double visibleRangeX,
+  required DateTime startDate,
 }) {
-  if (source.length < 2) {
+  const seasonLength = 12;
+  final monthly = _monthlyPoints(source, startDate);
+  if (monthly.length < seasonLength * 2) {
     return const [];
   }
 
-  final last = source.last;
-  final previous = source[source.length - 2];
-  final deltaX = last.x - previous.x;
-  if (deltaX <= 0) {
+  final centeredMovingAverages = _centeredMovingAverages(
+    monthly,
+    seasonLength: seasonLength,
+  );
+  if (centeredMovingAverages.length < seasonLength) {
     return const [];
   }
 
-  final dailyDelta = (last.y - previous.y) / deltaX;
-  final forecastDays = (visibleRangeX * 0.10).clamp(30.0, 75.0);
-  final forecastY = (last.y + dailyDelta * forecastDays).clamp(minY, maxY);
-  return [
-    last,
-    FlSpot(last.x + forecastDays, forecastY.toDouble()),
-  ];
+  final ratiosByMonth = <int, List<double>>{};
+  for (final entry in centeredMovingAverages.entries) {
+    final point = monthly[entry.key];
+    final movingAverage = entry.value;
+    if (movingAverage <= 0 || point.value <= 0) {
+      continue;
+    }
+    ratiosByMonth
+        .putIfAbsent(point.date.month, () => [])
+        .add(point.value / movingAverage);
+  }
+
+  final seasonalIndices = <int, double>{};
+  for (final entry in ratiosByMonth.entries) {
+    final values = entry.value;
+    seasonalIndices[entry.key] =
+        values.fold<double>(0, (sum, value) => sum + value) / values.length;
+  }
+  if (seasonalIndices.length < seasonLength) {
+    return const [];
+  }
+
+  final indicesAverage =
+      seasonalIndices.values.fold<double>(0, (sum, value) => sum + value) /
+          seasonalIndices.length;
+  if (indicesAverage <= 0) {
+    return const [];
+  }
+  seasonalIndices.updateAll((_, value) => value / indicesAverage);
+
+  final deseasonalized = <_TrendPoint>[];
+  for (var i = 0; i < monthly.length; i++) {
+    final point = monthly[i];
+    final seasonalIndex = seasonalIndices[point.date.month] ?? 1;
+    if (seasonalIndex <= 0) {
+      continue;
+    }
+    deseasonalized.add(_TrendPoint(i.toDouble(), point.value / seasonalIndex));
+  }
+  if (deseasonalized.length < 2) {
+    return const [];
+  }
+
+  final trendPoints = deseasonalized.length > seasonLength
+      ? deseasonalized.sublist(deseasonalized.length - seasonLength)
+      : deseasonalized;
+  final trend = _linearTrend(trendPoints);
+  if (trend == null) {
+    return const [];
+  }
+
+  final lastMonth = monthly.last.date;
+  final lastTrendValue = trend.valueAt((monthly.length - 1).toDouble());
+  final lastSeasonalIndex = seasonalIndices[lastMonth.month] ?? 1;
+  final fittedY =
+      (lastTrendValue * lastSeasonalIndex).clamp(0.0, double.infinity);
+  if (fittedY.isNaN || fittedY.isInfinite) {
+    return const [];
+  }
+
+  final result = <FlSpot>[FlSpot(source.last.x, fittedY)];
+  for (var step = 1; step <= 3; step++) {
+    final forecastMonth = DateTime(lastMonth.year, lastMonth.month + step);
+    final trendValue = trend.valueAt((monthly.length - 1 + step).toDouble());
+    final seasonalIndex = seasonalIndices[forecastMonth.month] ?? 1;
+    final forecastY = (trendValue * seasonalIndex).clamp(0.0, double.infinity);
+    final forecastX = forecastMonth.difference(startDate).inDays.toDouble();
+    if (forecastX <= result.last.x || forecastY.isNaN || forecastY.isInfinite) {
+      return const [];
+    }
+    result.add(FlSpot(forecastX, forecastY));
+  }
+  return result;
+}
+
+Map<int, double> _centeredMovingAverages(
+  List<_MonthlyPoint> monthly, {
+  required int seasonLength,
+}) {
+  final simpleAverages = <double>[];
+  for (var start = 0; start + seasonLength <= monthly.length; start++) {
+    final window = monthly.sublist(start, start + seasonLength);
+    simpleAverages.add(
+      window.fold<double>(0, (sum, point) => sum + point.value) / seasonLength,
+    );
+  }
+
+  final centered = <int, double>{};
+  for (var i = 0; i + 1 < simpleAverages.length; i++) {
+    final monthIndex = i + seasonLength ~/ 2;
+    centered[monthIndex] = (simpleAverages[i] + simpleAverages[i + 1]) / 2;
+  }
+  return centered;
+}
+
+List<_MonthlyPoint> _monthlyPoints(List<FlSpot> source, DateTime startDate) {
+  final valuesByMonth = <DateTime, List<double>>{};
+  for (final spot in source) {
+    final date = startDate.add(Duration(days: spot.x.round()));
+    final month = DateTime(date.year, date.month);
+    valuesByMonth.putIfAbsent(month, () => []).add(spot.y);
+  }
+
+  final points = valuesByMonth.entries.map((entry) {
+    final values = entry.value;
+    final average =
+        values.fold<double>(0, (sum, value) => sum + value) / values.length;
+    return _MonthlyPoint(entry.key, average);
+  }).toList()
+    ..sort((a, b) => a.date.compareTo(b.date));
+
+  return points;
+}
+
+_LinearTrend? _linearTrend(List<_TrendPoint> points) {
+  final count = points.length;
+  final sumX = points.fold<double>(0, (sum, point) => sum + point.x);
+  final sumY = points.fold<double>(0, (sum, point) => sum + point.y);
+  final sumXY = points.fold<double>(0, (sum, point) => sum + point.x * point.y);
+  final sumX2 = points.fold<double>(0, (sum, point) => sum + point.x * point.x);
+  final denominator = count * sumX2 - sumX * sumX;
+  if (denominator == 0) {
+    return null;
+  }
+
+  final slope = (count * sumXY - sumX * sumY) / denominator;
+  final intercept = (sumY - slope * sumX) / count;
+  return _LinearTrend(intercept, slope);
+}
+
+class _MonthlyPoint {
+  const _MonthlyPoint(this.date, this.value);
+
+  final DateTime date;
+  final double value;
+}
+
+class _TrendPoint {
+  const _TrendPoint(this.x, this.y);
+
+  final double x;
+  final double y;
+}
+
+class _LinearTrend {
+  const _LinearTrend(this.intercept, this.slope);
+
+  final double intercept;
+  final double slope;
+
+  double valueAt(double x) => intercept + slope * x;
 }
 
 double _intervalFor(double maxX) {

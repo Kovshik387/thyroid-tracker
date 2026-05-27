@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
 import '../domain/medication_plan.dart';
 import '../../../shared/presentation/app_card.dart';
+import '../../../shared/presentation/medication_time_chart.dart';
 import '../../../shared/presentation/screen_frame.dart';
 import '../../../shared/presentation/status_chip.dart';
 
@@ -32,13 +34,23 @@ class MedicationScreen extends StatelessWidget {
           streakDays: appState.medicationStreakDays,
           isTaken: appState.isPrimaryMedicationTakenToday,
           onTaken: appState.markPrimaryMedicationTakenToday,
+          onBackdated: () => _showIntakeDialog(
+            context,
+            appState.primaryMedication?.id,
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
         _MedicationPlansCard(
           plans: appState.medicationPlans,
           isTakenToday: appState.isMedicationTakenToday,
           onTaken: appState.markMedicationTakenToday,
+          onBackdated: (id) => _showIntakeDialog(context, id),
           onDelete: appState.deleteMedicationPlan,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _MedicationIntakeChartCard(
+          plans: appState.medicationPlans,
+          intakes: appState.medicationIntakes,
         ),
         const SizedBox(height: AppSpacing.lg),
         _MedicationHistoryCard(takenDays: appState.takenMedicationDays),
@@ -52,6 +64,16 @@ class MedicationScreen extends StatelessWidget {
       builder: (context) => const _MedicationDialog(),
     );
   }
+
+  Future<void> _showIntakeDialog(BuildContext context, String? planId) {
+    if (planId == null) {
+      return Future.value();
+    }
+    return showDialog<void>(
+      context: context,
+      builder: (context) => _MedicationIntakeDialog(planId: planId),
+    );
+  }
 }
 
 class _TodayDoseCard extends StatelessWidget {
@@ -62,6 +84,7 @@ class _TodayDoseCard extends StatelessWidget {
     required this.streakDays,
     required this.isTaken,
     required this.onTaken,
+    required this.onBackdated,
   });
 
   final String? medicationName;
@@ -70,6 +93,7 @@ class _TodayDoseCard extends StatelessWidget {
   final int streakDays;
   final bool isTaken;
   final VoidCallback onTaken;
+  final VoidCallback onBackdated;
 
   @override
   Widget build(BuildContext context) {
@@ -103,10 +127,21 @@ class _TodayDoseCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.lg),
           _StreakPanel(streakDays: streakDays),
           const SizedBox(height: AppSpacing.lg),
-          FilledButton.icon(
-            onPressed: isTaken ? null : onTaken,
-            icon: const Icon(Icons.check),
-            label: Text(isTaken ? 'Прием отмечен' : 'Отметить прием'),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
+            children: [
+              FilledButton.icon(
+                onPressed: isTaken ? null : onTaken,
+                icon: const Icon(Icons.check),
+                label: Text(isTaken ? 'Прием отмечен' : 'Отметить сегодня'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onBackdated,
+                icon: const Icon(Icons.event_available_outlined),
+                label: const Text('Другая дата'),
+              ),
+            ],
           ),
         ],
       ),
@@ -164,12 +199,14 @@ class _MedicationPlansCard extends StatelessWidget {
     required this.plans,
     required this.isTakenToday,
     required this.onTaken,
+    required this.onBackdated,
     required this.onDelete,
   });
 
   final List<MedicationPlan> plans;
   final bool Function(String id) isTakenToday;
   final ValueChanged<String> onTaken;
+  final ValueChanged<String> onBackdated;
   final ValueChanged<String> onDelete;
 
   @override
@@ -193,6 +230,7 @@ class _MedicationPlansCard extends StatelessWidget {
                 plan: plan,
                 isTaken: isTakenToday(plan.id),
                 onTaken: () => onTaken(plan.id),
+                onBackdated: () => onBackdated(plan.id),
                 onDelete: () => _confirmDelete(context, plan),
               ),
               if (plan != plans.last) const Divider(height: AppSpacing.xl),
@@ -234,12 +272,14 @@ class _MedicationPlanTile extends StatelessWidget {
     required this.plan,
     required this.isTaken,
     required this.onTaken,
+    required this.onBackdated,
     required this.onDelete,
   });
 
   final MedicationPlan plan;
   final bool isTaken;
   final VoidCallback onTaken;
+  final VoidCallback onBackdated;
   final VoidCallback onDelete;
 
   @override
@@ -267,10 +307,208 @@ class _MedicationPlanTile extends StatelessWidget {
           icon: Icon(isTaken ? Icons.check_circle : Icons.check_circle_outline),
         ),
         IconButton(
+          tooltip: 'Отметить за другую дату',
+          onPressed: onBackdated,
+          icon: const Icon(Icons.event_available_outlined),
+        ),
+        IconButton(
           tooltip: 'Удалить',
           onPressed: onDelete,
           icon: const Icon(Icons.delete_outline),
         ),
+      ],
+    );
+  }
+}
+
+class _MedicationIntakeDialog extends StatefulWidget {
+  const _MedicationIntakeDialog({required this.planId});
+
+  final String planId;
+
+  @override
+  State<_MedicationIntakeDialog> createState() =>
+      _MedicationIntakeDialogState();
+}
+
+class _MedicationIntakeDialogState extends State<_MedicationIntakeDialog> {
+  DateTime _date = DateTime.now();
+  TimeOfDay _time = TimeOfDay.now();
+
+  @override
+  Widget build(BuildContext context) {
+    final isBackdated = !_isSameDay(_date, DateTime.now());
+
+    return AlertDialog(
+      title: const Text('Отметка приема'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.calendar_today_outlined),
+            title: const Text('Дата'),
+            subtitle: Text(DateFormat('dd.MM.yyyy').format(_date)),
+            onTap: _pickDate,
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.schedule_outlined),
+            title: const Text('Время приема'),
+            subtitle: Text(_time.format(context)),
+            onTap: _pickTime,
+          ),
+          if (isBackdated) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Отметка задним числом сохранится в истории, но не увеличит серию приема.',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: AppColors.muted),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: _save,
+          child: const Text('Сохранить'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(now.year - 2),
+      lastDate: now,
+      locale: const Locale('ru'),
+    );
+    if (picked != null) {
+      setState(() => _date = picked);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(context: context, initialTime: _time);
+    if (picked != null) {
+      setState(() => _time = picked);
+    }
+  }
+
+  Future<void> _save() async {
+    await AppScope.read(context).markMedicationTaken(
+      medicationId: widget.planId,
+      date: _date,
+      takenAt: DateTime(
+        _date.year,
+        _date.month,
+        _date.day,
+        _time.hour,
+        _time.minute,
+      ),
+    );
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+}
+
+class _MedicationIntakeChartCard extends StatelessWidget {
+  const _MedicationIntakeChartCard({
+    required this.plans,
+    required this.intakes,
+  });
+
+  final List<MedicationPlan> plans;
+  final List<MedicationIntake> intakes;
+
+  @override
+  Widget build(BuildContext context) {
+    if (plans.isEmpty) {
+      return const AppCard(
+        child: Text('Добавьте препарат, чтобы отслеживать время приема.'),
+      );
+    }
+
+    final plan = plans.first;
+    final planIntakes =
+        intakes.where((intake) => intake.planId == plan.id).toList();
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('График приема', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            '${plan.name}: фактическое время относительно ${_formatTime(plan.intakeTime)}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.muted,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            height: 210,
+            child: MedicationTimeChart(
+              intakes: planIntakes,
+              plannedTime: plan.intakeTime,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const _TimeChartLegend(),
+        ],
+      ),
+    );
+  }
+}
+
+class _TimeChartLegend extends StatelessWidget {
+  const _TimeChartLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: AppSpacing.md,
+      runSpacing: AppSpacing.sm,
+      children: [
+        _LegendItem(color: AppColors.azure, label: 'Фактическое время'),
+        _LegendItem(color: AppColors.mint, label: 'Плановое время'),
+        _LegendItem(color: AppColors.borderStrong, label: 'Пропуск'),
+      ],
+    );
+  }
+}
+
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 18,
+          height: 3,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(AppRadii.pill),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
@@ -475,13 +713,22 @@ class _MarkerCircle extends StatelessWidget {
       );
     }
 
-    return const SizedBox.shrink();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.borderStrong),
+      ),
+    );
   }
 }
 
 DateTime _today() {
   final now = DateTime.now();
   return DateTime(now.year, now.month, now.day);
+}
+
+bool _isSameDay(DateTime a, DateTime b) {
+  return a.year == b.year && a.month == b.month && a.day == b.day;
 }
 
 List<DateTime> _currentWeekDays() {

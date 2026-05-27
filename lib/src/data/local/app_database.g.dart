@@ -1047,6 +1047,12 @@ class $MedicationIntakeEntriesTable extends MedicationIntakeEntries
   late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
       'date', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _takenAtMeta =
+      const VerificationMeta('takenAt');
+  @override
+  late final GeneratedColumn<DateTime> takenAt = GeneratedColumn<DateTime>(
+      'taken_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _takenMeta = const VerificationMeta('taken');
   @override
   late final GeneratedColumn<bool> taken = GeneratedColumn<bool>(
@@ -1055,8 +1061,19 @@ class $MedicationIntakeEntriesTable extends MedicationIntakeEntries
       requiredDuringInsert: true,
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("taken" IN (0, 1))'));
+  static const VerificationMeta _countsForStreakMeta =
+      const VerificationMeta('countsForStreak');
   @override
-  List<GeneratedColumn> get $columns => [id, planId, date, taken];
+  late final GeneratedColumn<bool> countsForStreak = GeneratedColumn<bool>(
+      'counts_for_streak', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("counts_for_streak" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, planId, date, takenAt, taken, countsForStreak];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1085,11 +1102,21 @@ class $MedicationIntakeEntriesTable extends MedicationIntakeEntries
     } else if (isInserting) {
       context.missing(_dateMeta);
     }
+    if (data.containsKey('taken_at')) {
+      context.handle(_takenAtMeta,
+          takenAt.isAcceptableOrUnknown(data['taken_at']!, _takenAtMeta));
+    }
     if (data.containsKey('taken')) {
       context.handle(
           _takenMeta, taken.isAcceptableOrUnknown(data['taken']!, _takenMeta));
     } else if (isInserting) {
       context.missing(_takenMeta);
+    }
+    if (data.containsKey('counts_for_streak')) {
+      context.handle(
+          _countsForStreakMeta,
+          countsForStreak.isAcceptableOrUnknown(
+              data['counts_for_streak']!, _countsForStreakMeta));
     }
     return context;
   }
@@ -1106,8 +1133,12 @@ class $MedicationIntakeEntriesTable extends MedicationIntakeEntries
           .read(DriftSqlType.string, data['${effectivePrefix}plan_id'])!,
       date: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}date'])!,
+      takenAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}taken_at']),
       taken: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}taken'])!,
+      countsForStreak: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}counts_for_streak'])!,
     );
   }
 
@@ -1122,19 +1153,27 @@ class MedicationIntakeEntry extends DataClass
   final String id;
   final String planId;
   final DateTime date;
+  final DateTime? takenAt;
   final bool taken;
+  final bool countsForStreak;
   const MedicationIntakeEntry(
       {required this.id,
       required this.planId,
       required this.date,
-      required this.taken});
+      this.takenAt,
+      required this.taken,
+      required this.countsForStreak});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['plan_id'] = Variable<String>(planId);
     map['date'] = Variable<DateTime>(date);
+    if (!nullToAbsent || takenAt != null) {
+      map['taken_at'] = Variable<DateTime>(takenAt);
+    }
     map['taken'] = Variable<bool>(taken);
+    map['counts_for_streak'] = Variable<bool>(countsForStreak);
     return map;
   }
 
@@ -1143,7 +1182,11 @@ class MedicationIntakeEntry extends DataClass
       id: Value(id),
       planId: Value(planId),
       date: Value(date),
+      takenAt: takenAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(takenAt),
       taken: Value(taken),
+      countsForStreak: Value(countsForStreak),
     );
   }
 
@@ -1154,7 +1197,9 @@ class MedicationIntakeEntry extends DataClass
       id: serializer.fromJson<String>(json['id']),
       planId: serializer.fromJson<String>(json['planId']),
       date: serializer.fromJson<DateTime>(json['date']),
+      takenAt: serializer.fromJson<DateTime?>(json['takenAt']),
       taken: serializer.fromJson<bool>(json['taken']),
+      countsForStreak: serializer.fromJson<bool>(json['countsForStreak']),
     );
   }
   @override
@@ -1164,17 +1209,26 @@ class MedicationIntakeEntry extends DataClass
       'id': serializer.toJson<String>(id),
       'planId': serializer.toJson<String>(planId),
       'date': serializer.toJson<DateTime>(date),
+      'takenAt': serializer.toJson<DateTime?>(takenAt),
       'taken': serializer.toJson<bool>(taken),
+      'countsForStreak': serializer.toJson<bool>(countsForStreak),
     };
   }
 
   MedicationIntakeEntry copyWith(
-          {String? id, String? planId, DateTime? date, bool? taken}) =>
+          {String? id,
+          String? planId,
+          DateTime? date,
+          Value<DateTime?> takenAt = const Value.absent(),
+          bool? taken,
+          bool? countsForStreak}) =>
       MedicationIntakeEntry(
         id: id ?? this.id,
         planId: planId ?? this.planId,
         date: date ?? this.date,
+        takenAt: takenAt.present ? takenAt.value : this.takenAt,
         taken: taken ?? this.taken,
+        countsForStreak: countsForStreak ?? this.countsForStreak,
       );
   MedicationIntakeEntry copyWithCompanion(
       MedicationIntakeEntriesCompanion data) {
@@ -1182,7 +1236,11 @@ class MedicationIntakeEntry extends DataClass
       id: data.id.present ? data.id.value : this.id,
       planId: data.planId.present ? data.planId.value : this.planId,
       date: data.date.present ? data.date.value : this.date,
+      takenAt: data.takenAt.present ? data.takenAt.value : this.takenAt,
       taken: data.taken.present ? data.taken.value : this.taken,
+      countsForStreak: data.countsForStreak.present
+          ? data.countsForStreak.value
+          : this.countsForStreak,
     );
   }
 
@@ -1192,13 +1250,16 @@ class MedicationIntakeEntry extends DataClass
           ..write('id: $id, ')
           ..write('planId: $planId, ')
           ..write('date: $date, ')
-          ..write('taken: $taken')
+          ..write('takenAt: $takenAt, ')
+          ..write('taken: $taken, ')
+          ..write('countsForStreak: $countsForStreak')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, planId, date, taken);
+  int get hashCode =>
+      Object.hash(id, planId, date, takenAt, taken, countsForStreak);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1206,7 +1267,9 @@ class MedicationIntakeEntry extends DataClass
           other.id == this.id &&
           other.planId == this.planId &&
           other.date == this.date &&
-          other.taken == this.taken);
+          other.takenAt == this.takenAt &&
+          other.taken == this.taken &&
+          other.countsForStreak == this.countsForStreak);
 }
 
 class MedicationIntakeEntriesCompanion
@@ -1214,20 +1277,26 @@ class MedicationIntakeEntriesCompanion
   final Value<String> id;
   final Value<String> planId;
   final Value<DateTime> date;
+  final Value<DateTime?> takenAt;
   final Value<bool> taken;
+  final Value<bool> countsForStreak;
   final Value<int> rowid;
   const MedicationIntakeEntriesCompanion({
     this.id = const Value.absent(),
     this.planId = const Value.absent(),
     this.date = const Value.absent(),
+    this.takenAt = const Value.absent(),
     this.taken = const Value.absent(),
+    this.countsForStreak = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MedicationIntakeEntriesCompanion.insert({
     required String id,
     required String planId,
     required DateTime date,
+    this.takenAt = const Value.absent(),
     required bool taken,
+    this.countsForStreak = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         planId = Value(planId),
@@ -1237,14 +1306,18 @@ class MedicationIntakeEntriesCompanion
     Expression<String>? id,
     Expression<String>? planId,
     Expression<DateTime>? date,
+    Expression<DateTime>? takenAt,
     Expression<bool>? taken,
+    Expression<bool>? countsForStreak,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (planId != null) 'plan_id': planId,
       if (date != null) 'date': date,
+      if (takenAt != null) 'taken_at': takenAt,
       if (taken != null) 'taken': taken,
+      if (countsForStreak != null) 'counts_for_streak': countsForStreak,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1253,13 +1326,17 @@ class MedicationIntakeEntriesCompanion
       {Value<String>? id,
       Value<String>? planId,
       Value<DateTime>? date,
+      Value<DateTime?>? takenAt,
       Value<bool>? taken,
+      Value<bool>? countsForStreak,
       Value<int>? rowid}) {
     return MedicationIntakeEntriesCompanion(
       id: id ?? this.id,
       planId: planId ?? this.planId,
       date: date ?? this.date,
+      takenAt: takenAt ?? this.takenAt,
       taken: taken ?? this.taken,
+      countsForStreak: countsForStreak ?? this.countsForStreak,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1276,8 +1353,14 @@ class MedicationIntakeEntriesCompanion
     if (date.present) {
       map['date'] = Variable<DateTime>(date.value);
     }
+    if (takenAt.present) {
+      map['taken_at'] = Variable<DateTime>(takenAt.value);
+    }
     if (taken.present) {
       map['taken'] = Variable<bool>(taken.value);
+    }
+    if (countsForStreak.present) {
+      map['counts_for_streak'] = Variable<bool>(countsForStreak.value);
     }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
@@ -1291,7 +1374,9 @@ class MedicationIntakeEntriesCompanion
           ..write('id: $id, ')
           ..write('planId: $planId, ')
           ..write('date: $date, ')
+          ..write('takenAt: $takenAt, ')
           ..write('taken: $taken, ')
+          ..write('countsForStreak: $countsForStreak, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3614,7 +3699,9 @@ typedef $$MedicationIntakeEntriesTableCreateCompanionBuilder
   required String id,
   required String planId,
   required DateTime date,
+  Value<DateTime?> takenAt,
   required bool taken,
+  Value<bool> countsForStreak,
   Value<int> rowid,
 });
 typedef $$MedicationIntakeEntriesTableUpdateCompanionBuilder
@@ -3622,7 +3709,9 @@ typedef $$MedicationIntakeEntriesTableUpdateCompanionBuilder
   Value<String> id,
   Value<String> planId,
   Value<DateTime> date,
+  Value<DateTime?> takenAt,
   Value<bool> taken,
+  Value<bool> countsForStreak,
   Value<int> rowid,
 });
 
@@ -3644,8 +3733,15 @@ class $$MedicationIntakeEntriesTableFilterComposer
   ColumnFilters<DateTime> get date => $composableBuilder(
       column: $table.date, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<DateTime> get takenAt => $composableBuilder(
+      column: $table.takenAt, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<bool> get taken => $composableBuilder(
       column: $table.taken, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get countsForStreak => $composableBuilder(
+      column: $table.countsForStreak,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$MedicationIntakeEntriesTableOrderingComposer
@@ -3666,8 +3762,15 @@ class $$MedicationIntakeEntriesTableOrderingComposer
   ColumnOrderings<DateTime> get date => $composableBuilder(
       column: $table.date, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<DateTime> get takenAt => $composableBuilder(
+      column: $table.takenAt, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get taken => $composableBuilder(
       column: $table.taken, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get countsForStreak => $composableBuilder(
+      column: $table.countsForStreak,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$MedicationIntakeEntriesTableAnnotationComposer
@@ -3688,8 +3791,14 @@ class $$MedicationIntakeEntriesTableAnnotationComposer
   GeneratedColumn<DateTime> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
 
+  GeneratedColumn<DateTime> get takenAt =>
+      $composableBuilder(column: $table.takenAt, builder: (column) => column);
+
   GeneratedColumn<bool> get taken =>
       $composableBuilder(column: $table.taken, builder: (column) => column);
+
+  GeneratedColumn<bool> get countsForStreak => $composableBuilder(
+      column: $table.countsForStreak, builder: (column) => column);
 }
 
 class $$MedicationIntakeEntriesTableTableManager extends RootTableManager<
@@ -3726,28 +3835,36 @@ class $$MedicationIntakeEntriesTableTableManager extends RootTableManager<
             Value<String> id = const Value.absent(),
             Value<String> planId = const Value.absent(),
             Value<DateTime> date = const Value.absent(),
+            Value<DateTime?> takenAt = const Value.absent(),
             Value<bool> taken = const Value.absent(),
+            Value<bool> countsForStreak = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               MedicationIntakeEntriesCompanion(
             id: id,
             planId: planId,
             date: date,
+            takenAt: takenAt,
             taken: taken,
+            countsForStreak: countsForStreak,
             rowid: rowid,
           ),
           createCompanionCallback: ({
             required String id,
             required String planId,
             required DateTime date,
+            Value<DateTime?> takenAt = const Value.absent(),
             required bool taken,
+            Value<bool> countsForStreak = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               MedicationIntakeEntriesCompanion.insert(
             id: id,
             planId: planId,
             date: date,
+            takenAt: takenAt,
             taken: taken,
+            countsForStreak: countsForStreak,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

@@ -8,6 +8,7 @@ import '../features/media/presentation/media_screen.dart';
 import '../features/medication/presentation/medication_screen.dart';
 import '../features/more/presentation/more_screen.dart';
 import '../features/overview/presentation/overview_screen.dart';
+import '../features/report/presentation/doctor_report_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/sleep/presentation/sleep_screen.dart';
 import '../features/weight/presentation/weight_screen.dart';
@@ -69,6 +70,13 @@ final appRouter = GoRouter(
         return const NoTransitionPage(child: WeightScreen());
       },
     ),
+    GoRoute(
+      path: AppRoute.report.path,
+      name: AppRoute.report.name,
+      pageBuilder: (context, state) {
+        return const NoTransitionPage(child: DoctorReportScreen());
+      },
+    ),
   ],
 );
 
@@ -94,7 +102,8 @@ enum AppRoute {
   knowledge('/knowledge'),
   settings('/settings'),
   sleep('/sleep'),
-  weight('/weight');
+  weight('/weight'),
+  report('/report');
 
   const AppRoute(this.path);
 

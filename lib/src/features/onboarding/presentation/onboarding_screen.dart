@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
 import '../../../shared/presentation/app_card.dart';
+import '../../../shared/presentation/date_input_formatter.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -518,9 +519,9 @@ class _ControlStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _StepFrame(
-      title: 'Напоминания',
+      title: 'Контроль',
       subtitle:
-          'Приложение будет мягко подсказывать, если контроль давно не обновлялся.',
+          'Укажите, как часто по вашим рекомендациям необходимо проводить исследования крови и посещать врача-эндокринолога.',
       child: Row(
         children: [
           Expanded(
@@ -720,10 +721,7 @@ class _DateTextField extends StatelessWidget {
       controller: controller,
       keyboardType: TextInputType.datetime,
       textInputAction: TextInputAction.done,
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-        LengthLimitingTextInputFormatter(10),
-      ],
+      inputFormatters: const [DateInputFormatter()],
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,

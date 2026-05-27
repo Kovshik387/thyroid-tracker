@@ -40,6 +40,13 @@ class MoreScreen extends StatelessWidget {
               subtitle: 'Питание, контроль, вопросы врачу',
               onTap: () => context.push(AppRoute.knowledge.path),
             ),
+            _MoreTile(
+              icon: Icons.picture_as_pdf_outlined,
+              iconColor: AppColors.coral,
+              title: 'Отчет врачу',
+              subtitle: 'PDF для приема эндокринолога',
+              onTap: () => context.push(AppRoute.report.path),
+            ),
           ],
         ),
         const SizedBox(height: AppSpacing.lg),

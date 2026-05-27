@@ -9,7 +9,9 @@ import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
 import '../../../features/labs/domain/lab_result.dart';
 import '../../../features/labs/domain/lab_evaluator.dart';
+import '../../../features/medication/domain/medication_plan.dart';
 import '../../../shared/presentation/app_card.dart';
+import '../../../shared/presentation/medication_time_chart.dart';
 import '../../../shared/presentation/screen_frame.dart';
 import '../../../shared/presentation/status_chip.dart';
 import '../../profile/domain/user_profile.dart';
@@ -39,7 +41,19 @@ class OverviewScreen extends StatelessWidget {
           dosage: appState.primaryMedication?.dosage,
           intakeTime: appState.primaryMedication?.intakeTime,
           isTaken: appState.isPrimaryMedicationTakenToday,
-          onTaken: appState.markPrimaryMedicationTakenToday,
+          onTakenAt: (takenAt) {
+            final medication = appState.primaryMedication;
+            if (medication == null) {
+              return;
+            }
+            appState.markMedicationTaken(
+              medicationId: medication.id,
+              date: takenAt,
+              takenAt: takenAt,
+            );
+          },
+          intakes: appState.medicationIntakes,
+          plannedTime: appState.primaryMedication?.intakeTime,
         ),
         const SizedBox(height: AppSpacing.lg),
         _LatestLabsCard(
@@ -103,14 +117,18 @@ class _MedicationTodayCard extends StatelessWidget {
     required this.dosage,
     required this.intakeTime,
     required this.isTaken,
-    required this.onTaken,
+    required this.onTakenAt,
+    required this.intakes,
+    required this.plannedTime,
   });
 
   final String? medicationName;
   final String? dosage;
   final DateTime? intakeTime;
   final bool isTaken;
-  final VoidCallback onTaken;
+  final ValueChanged<DateTime> onTakenAt;
+  final List<MedicationIntake> intakes;
+  final DateTime? plannedTime;
 
   @override
   Widget build(BuildContext context) {
@@ -121,39 +139,88 @@ class _MedicationTodayCard extends StatelessWidget {
       );
     }
 
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.medication, color: AppColors.azure),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                medicationName!,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const Spacer(),
-              StatusChip(
-                label: _formatTime(intakeTime),
-                color: AppColors.azureDeep,
-                icon: Icons.schedule,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '${dosage ?? 'Дозировка не указана'}, до завтрака',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.muted,
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadii.card),
+      onTap: () => _showMedicationChart(context, intakes, plannedTime),
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.medication, color: AppColors.azure),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  medicationName!,
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
+                const Spacer(),
+                StatusChip(
+                  label: _formatTime(intakeTime),
+                  color: AppColors.azureDeep,
+                  icon: Icons.schedule,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              '${dosage ?? 'Дозировка не указана'}, до завтрака',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.muted,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            FilledButton.icon(
+              onPressed: isTaken ? null : () => _pickIntakeTime(context),
+              icon: Icon(
+                  isTaken ? Icons.check_circle : Icons.radio_button_unchecked),
+              label: Text(isTaken ? 'Принято сегодня' : 'Отметить прием'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickIntakeTime(BuildContext context) async {
+    final now = DateTime.now();
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now),
+    );
+    if (picked == null) {
+      return;
+    }
+    onTakenAt(
+      DateTime(now.year, now.month, now.day, picked.hour, picked.minute),
+    );
+  }
+
+  Future<void> _showMedicationChart(
+    BuildContext context,
+    List<MedicationIntake> intakes,
+    DateTime? plannedTime,
+  ) {
+    if (plannedTime == null) {
+      return Future.value();
+    }
+
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('График приема'),
+        content: SizedBox(
+          width: 360,
+          height: 260,
+          child: MedicationTimeChart(
+            intakes: intakes,
+            plannedTime: plannedTime,
           ),
-          const SizedBox(height: AppSpacing.lg),
-          FilledButton.icon(
-            onPressed: isTaken ? null : onTaken,
-            icon: Icon(
-                isTaken ? Icons.check_circle : Icons.radio_button_unchecked),
-            label: Text(isTaken ? 'Принято сегодня' : 'Отметить прием'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Закрыть'),
           ),
         ],
       ),

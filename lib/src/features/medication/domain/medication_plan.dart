@@ -20,10 +20,14 @@ class MedicationIntake {
     required this.planId,
     required this.date,
     required this.taken,
+    required this.countsForStreak,
+    this.takenAt,
   });
 
   final String id;
   final String planId;
   final DateTime date;
+  final DateTime? takenAt;
   final bool taken;
+  final bool countsForStreak;
 }
