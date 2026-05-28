@@ -176,9 +176,7 @@ class AppDatabase extends _$AppDatabase {
                   sqlite3Wasm: Uri.parse('sqlite3.wasm'),
                   driftWorker: Uri.parse('drift_worker.dart.js'),
                 ),
-                native: const DriftNativeOptions(
-                  shareAcrossIsolates: true,
-                ),
+                native: const DriftNativeOptions(),
               ),
         );
 

@@ -690,7 +690,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> _load() async {
     try {
-      await _loadUnsafe();
+      await _loadUnsafe().timeout(const Duration(seconds: 8));
     } catch (error, stackTrace) {
       debugPrint('AppState load failed: $error');
       debugPrintStack(stackTrace: stackTrace);
