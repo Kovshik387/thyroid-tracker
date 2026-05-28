@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
 import '../domain/doctor_visit.dart';
+import '../../../shared/presentation/adaptive_picker.dart';
 import '../../../shared/presentation/app_card.dart';
 import '../../../shared/presentation/screen_frame.dart';
 import '../../../shared/presentation/status_chip.dart';
@@ -163,12 +164,11 @@ class _DoctorVisitDialogState extends State<_DoctorVisitDialog> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final picked = await pickAdaptiveDate(
       context: context,
       initialDate: _date,
       firstDate: DateTime(_date.year - 10),
       lastDate: DateTime(_date.year + 1),
-      locale: const Locale('ru'),
     );
 
     if (picked != null) {

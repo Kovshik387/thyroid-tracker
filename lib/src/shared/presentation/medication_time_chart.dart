@@ -195,13 +195,24 @@ class MedicationTimeChart extends StatelessWidget {
         ],
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
+            tooltipRoundedRadius: 14,
+            tooltipPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            tooltipMargin: AppSpacing.sm,
+            fitInsideHorizontally: true,
+            fitInsideVertically: true,
+            getTooltipColor: (_) => AppColors.ink.withValues(alpha: 0.88),
             getTooltipItems: (spots) {
               return spots.map((spot) {
                 return LineTooltipItem(
                   '${_formatMinutes(spot.y.round())}\nсреднее',
                   const TextStyle(
-                    color: AppColors.ink,
+                    color: Colors.white,
                     fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    height: 1.25,
                   ),
                 );
               }).toList();

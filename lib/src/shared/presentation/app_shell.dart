@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/design_tokens.dart';
@@ -17,7 +18,13 @@ class AppShell extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      body: RepaintBoundary(child: navigationShell),
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragEnd: _supportsSwipeNavigation
+            ? (details) => _handleHorizontalDrag(details)
+            : null,
+        child: RepaintBoundary(child: navigationShell),
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: AppColors.surface,
@@ -70,6 +77,28 @@ class AppShell extends StatelessWidget {
       index,
       initialLocation: index == navigationShell.currentIndex,
     );
+  }
+
+  bool get _supportsSwipeNavigation {
+    if (kIsWeb) {
+      return false;
+    }
+    return defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+  }
+
+  void _handleHorizontalDrag(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < 260) {
+      return;
+    }
+
+    final currentIndex = navigationShell.currentIndex;
+    final nextIndex = velocity < 0 ? currentIndex + 1 : currentIndex - 1;
+    if (nextIndex < 0 || nextIndex > 3) {
+      return;
+    }
+    _goBranch(nextIndex);
   }
 }
 

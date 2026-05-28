@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
 import '../domain/sleep_log.dart';
+import '../../../shared/presentation/adaptive_picker.dart';
 import '../../../shared/presentation/app_card.dart';
 import '../../../shared/presentation/screen_frame.dart';
 import '../../../shared/presentation/status_chip.dart';
@@ -117,12 +118,11 @@ class _SleepScreenState extends State<SleepScreen> {
     final initialDate = isFrom
         ? _fromDate ?? DateTime(now.year, now.month - 1, now.day)
         : _toDate ?? now;
-    final picked = await showDatePicker(
+    final picked = await pickAdaptiveDate(
       context: context,
       initialDate: initialDate,
       firstDate: DateTime(now.year - 5),
       lastDate: now,
-      locale: const Locale('ru'),
     );
     if (picked == null) {
       return;
@@ -448,12 +448,11 @@ class _SleepDialogState extends State<_SleepDialog> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final picked = await pickAdaptiveDate(
       context: context,
       initialDate: _date,
       firstDate: DateTime(_date.year - 2),
       lastDate: DateTime.now(),
-      locale: const Locale('ru'),
     );
     if (picked != null) {
       setState(() => _date = picked);
@@ -461,7 +460,7 @@ class _SleepDialogState extends State<_SleepDialog> {
   }
 
   Future<void> _pickTime({required bool isStart}) async {
-    final picked = await showTimePicker(
+    final picked = await pickAdaptiveTime(
       context: context,
       initialTime: isStart ? _sleepStart : _sleepEnd,
     );

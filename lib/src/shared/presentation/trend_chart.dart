@@ -173,15 +173,23 @@ class TrendChartCard extends StatelessWidget {
       ],
       lineTouchData: LineTouchData(
         touchTooltipData: LineTouchTooltipData(
+          tooltipRoundedRadius: 14,
+          tooltipPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          tooltipMargin: AppSpacing.sm,
           fitInsideHorizontally: true,
           fitInsideVertically: true,
+          getTooltipColor: (_) => AppColors.ink.withValues(alpha: 0.88),
           getTooltipItems: (items) {
             return items.map((item) {
               return LineTooltipItem(
                 '${_formatNumber(item.y)} $valueSuffix',
                 TextStyle(
-                  color: lineColor,
+                  color: Colors.white,
                   fontWeight: FontWeight.w800,
+                  fontSize: 12,
                 ),
               );
             }).toList();

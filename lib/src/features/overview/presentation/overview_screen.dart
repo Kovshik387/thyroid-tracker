@@ -11,6 +11,7 @@ import '../../../features/labs/domain/lab_result.dart';
 import '../../../features/labs/domain/lab_evaluator.dart';
 import '../../../features/medication/domain/medication_plan.dart';
 import '../../../shared/presentation/app_card.dart';
+import '../../../shared/presentation/adaptive_picker.dart';
 import '../../../shared/presentation/medication_time_chart.dart';
 import '../../../shared/presentation/screen_frame.dart';
 import '../../../shared/presentation/status_chip.dart';
@@ -184,7 +185,7 @@ class _MedicationTodayCard extends StatelessWidget {
 
   Future<void> _pickIntakeTime(BuildContext context) async {
     final now = DateTime.now();
-    final picked = await showTimePicker(
+    final picked = await pickAdaptiveTime(
       context: context,
       initialTime: TimeOfDay.fromDateTime(now),
     );

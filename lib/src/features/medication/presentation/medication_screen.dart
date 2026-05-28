@@ -5,6 +5,7 @@ import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
 import '../domain/medication_plan.dart';
 import '../../../shared/presentation/app_card.dart';
+import '../../../shared/presentation/adaptive_picker.dart';
 import '../../../shared/presentation/medication_time_chart.dart';
 import '../../../shared/presentation/screen_frame.dart';
 import '../../../shared/presentation/status_chip.dart';
@@ -385,12 +386,11 @@ class _MedicationIntakeDialogState extends State<_MedicationIntakeDialog> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await pickAdaptiveDate(
       context: context,
       initialDate: _date,
       firstDate: DateTime(now.year - 2),
       lastDate: now,
-      locale: const Locale('ru'),
     );
     if (picked != null) {
       setState(() => _date = picked);
@@ -398,7 +398,7 @@ class _MedicationIntakeDialogState extends State<_MedicationIntakeDialog> {
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _time);
+    final picked = await pickAdaptiveTime(context: context, initialTime: _time);
     if (picked != null) {
       setState(() => _time = picked);
     }
@@ -482,7 +482,7 @@ class _TimeChartLegend extends StatelessWidget {
       children: [
         _LegendItem(color: AppColors.azure, label: 'Фактическое время'),
         _LegendItem(color: AppColors.mint, label: 'Плановое время'),
-        _LegendItem(color: AppColors.borderStrong, label: 'Пропуск'),
+        //_LegendItem(color: AppColors.borderStrong, label: 'Пропуск'),
       ],
     );
   }
@@ -592,7 +592,7 @@ class _MedicationDialogState extends State<_MedicationDialog> {
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(
+    final picked = await pickAdaptiveTime(
       context: context,
       initialTime: _intakeTime,
     );

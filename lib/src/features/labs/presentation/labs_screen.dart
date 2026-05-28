@@ -9,6 +9,7 @@ import '../../../core/domain/reference_range.dart';
 import '../domain/lab_evaluator.dart';
 import '../domain/lab_result.dart';
 import '../domain/lab_trend_analyzer.dart';
+import '../../../shared/presentation/adaptive_picker.dart';
 import '../../../shared/presentation/app_card.dart';
 import '../../../shared/presentation/screen_frame.dart';
 import '../../../shared/presentation/status_chip.dart';
@@ -96,14 +97,13 @@ class _LabsScreenState extends State<LabsScreen> {
 
   Future<void> _pickRange() async {
     final now = DateTime.now();
-    final picked = await showDateRangePicker(
+    final picked = await pickAdaptiveDateRange(
       context: context,
       firstDate: DateTime(now.year - 10),
       lastDate: DateTime(now.year + 1),
       initialDateRange: _fromDate == null || _toDate == null
           ? null
           : DateTimeRange(start: _fromDate!, end: _toDate!),
-      locale: const Locale('ru'),
     );
     if (picked == null) {
       return;
@@ -398,12 +398,11 @@ class _LabsFormCardState extends State<_LabsFormCard> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await pickAdaptiveDate(
       context: context,
       initialDate: _parseDate(_dateController.text) ?? now,
       firstDate: DateTime(now.year - 10),
       lastDate: DateTime(now.year + 1),
-      locale: const Locale('ru'),
     );
 
     if (picked == null) {
@@ -629,7 +628,37 @@ class _LabsChartCardState extends State<_LabsChartCard> {
                           ),
                         ],
                       ),
-                      lineTouchData: const LineTouchData(enabled: true),
+                      lineTouchData: LineTouchData(
+                        touchTooltipData: LineTouchTooltipData(
+                          tooltipRoundedRadius: 14,
+                          tooltipPadding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm,
+                          ),
+                          tooltipMargin: AppSpacing.sm,
+                          fitInsideHorizontally: true,
+                          fitInsideVertically: true,
+                          getTooltipColor: (_) =>
+                              AppColors.ink.withValues(alpha: 0.88),
+                          getTooltipItems: (items) {
+                            return items.map((item) {
+                              final date = chartData.dateForX(item.x);
+                              final isForecast = item.barIndex == 1;
+                              return LineTooltipItem(
+                                '${isForecast ? 'Прогноз\n' : ''}${_formatValue(item.y)} ${range.unit}\n${DateFormat('dd.MM.yyyy').format(date)}',
+                                TextStyle(
+                                  color: isForecast
+                                      ? AppColors.amber
+                                      : Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  height: 1.25,
+                                ),
+                              );
+                            }).toList();
+                          },
+                        ),
+                      ),
                       lineBarsData: [
                         LineChartBarData(
                           spots: chartData.spots,

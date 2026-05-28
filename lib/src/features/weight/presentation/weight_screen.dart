@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
+import '../../../shared/presentation/adaptive_picker.dart';
+import '../../../shared/presentation/adaptive_message.dart';
 import '../../../shared/presentation/app_card.dart';
 import '../../../shared/presentation/screen_frame.dart';
 import '../../../shared/presentation/status_chip.dart';
@@ -114,12 +116,11 @@ class _WeightScreenState extends State<WeightScreen> {
     final initialDate = isFrom
         ? _fromDate ?? DateTime(now.year, now.month - 1, now.day)
         : _toDate ?? now;
-    final picked = await showDatePicker(
+    final picked = await pickAdaptiveDate(
       context: context,
       initialDate: initialDate,
       firstDate: DateTime(now.year - 5),
       lastDate: now,
-      locale: const Locale('ru'),
     );
     if (picked == null) {
       return;
@@ -420,12 +421,11 @@ class _WeightDialogState extends State<_WeightDialog> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final picked = await pickAdaptiveDate(
       context: context,
       initialDate: _date,
       firstDate: DateTime(_date.year - 3),
       lastDate: DateTime.now(),
-      locale: const Locale('ru'),
     );
     if (picked != null) {
       setState(() => _date = picked);
@@ -435,9 +435,7 @@ class _WeightDialogState extends State<_WeightDialog> {
   void _save() {
     final value = double.tryParse(_weightController.text.replaceAll(',', '.'));
     if (value == null || value <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите вес числом')),
-      );
+      showAdaptiveMessage(context, 'Введите вес числом');
       return;
     }
 

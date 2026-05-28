@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
 import '../../../core/domain/reference_range.dart';
+import '../../../shared/presentation/adaptive_message.dart';
+import '../../../shared/presentation/adaptive_picker.dart';
 import '../../../shared/presentation/date_input_formatter.dart';
 import '../../../shared/presentation/screen_frame.dart';
 
@@ -315,7 +317,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _pickIntakeTime() async {
-    final picked = await showTimePicker(
+    final picked = await pickAdaptiveTime(
       context: context,
       initialTime: _intakeTime,
     );
@@ -328,12 +330,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await pickAdaptiveDate(
       context: context,
       initialDate: _birthDate ?? DateTime(now.year - 30, now.month, now.day),
       firstDate: DateTime(now.year - 100),
       lastDate: now,
-      locale: const Locale('ru'),
     );
     if (picked != null) {
       setState(() {
@@ -361,9 +362,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final parsed = _parseDate(value);
     if (parsed == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите дату в формате дд.мм.гггг')),
-      );
+      showAdaptiveMessage(context, 'Введите дату в формате дд.мм.гггг');
       return;
     }
 
@@ -377,12 +376,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          value ? 'Тестовые данные добавлены' : 'Тестовые данные удалены',
-        ),
-      ),
+    showAdaptiveMessage(
+      context,
+      value ? 'Тестовые данные добавлены' : 'Тестовые данные удалены',
     );
   }
 
@@ -392,14 +388,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          value
-              ? 'Тестовые данные сна добавлены'
-              : 'Тестовые данные сна удалены',
-        ),
-      ),
+    showAdaptiveMessage(
+      context,
+      value ? 'Тестовые данные сна добавлены' : 'Тестовые данные сна удалены',
     );
   }
 
@@ -413,14 +404,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (weight != null) {
       _weightController.text = _format(weight);
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          value
-              ? 'Тестовые данные веса добавлены'
-              : 'Тестовые данные веса удалены',
-        ),
-      ),
+    showAdaptiveMessage(
+      context,
+      value ? 'Тестовые данные веса добавлены' : 'Тестовые данные веса удалены',
     );
   }
 
@@ -430,14 +416,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          value
-              ? 'Тестовые данные приема добавлены'
-              : 'Тестовые данные приема удалены',
-        ),
-      ),
+    showAdaptiveMessage(
+      context,
+      value
+          ? 'Тестовые данные приема добавлены'
+          : 'Тестовые данные приема удалены',
     );
   }
 }

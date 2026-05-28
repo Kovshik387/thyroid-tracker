@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 
 import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
+import '../../../shared/presentation/adaptive_picker.dart';
+import '../../../shared/presentation/adaptive_message.dart';
 import '../../../shared/presentation/app_card.dart';
 import '../../../shared/presentation/date_input_formatter.dart';
 
@@ -122,7 +124,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(
+    final picked = await pickAdaptiveTime(
       context: context,
       initialTime: _intakeTime,
     );
@@ -142,9 +144,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _next() async {
     final typedBirthDate = _parseDate(_birthDateController.text);
     if (_birthDateController.text.trim().isNotEmpty && typedBirthDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите дату в формате дд.мм.гггг')),
-      );
+      showAdaptiveMessage(context, 'Введите дату в формате дд.мм.гггг');
       return;
     }
     if (typedBirthDate != null) {
@@ -201,12 +201,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _pickBirthDate() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    final picked = await pickAdaptiveDate(
       context: context,
       initialDate: _birthDate ?? DateTime(now.year - 30, now.month, now.day),
       firstDate: DateTime(now.year - 100),
       lastDate: now,
-      locale: const Locale('ru'),
     );
     if (picked != null) {
       setState(() {

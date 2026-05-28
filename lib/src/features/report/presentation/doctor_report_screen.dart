@@ -11,6 +11,8 @@ import '../../../features/profile/domain/user_profile.dart';
 import '../../../features/sleep/domain/sleep_log.dart';
 import '../../../features/weight/domain/weight_log.dart';
 import '../../../shared/platform/pdf_file_saver.dart';
+import '../../../shared/presentation/adaptive_message.dart';
+import '../../../shared/presentation/adaptive_picker.dart';
 import '../../../shared/presentation/app_card.dart';
 import '../../../shared/presentation/screen_frame.dart';
 
@@ -99,12 +101,11 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
 
   Future<void> _pickReportRange() async {
     final now = _dateOnly(DateTime.now());
-    final picked = await showDateRangePicker(
+    final picked = await pickAdaptiveDateRange(
       context: context,
       firstDate: DateTime(now.year - 10),
       lastDate: now,
       initialDateRange: DateTimeRange(start: _fromDate, end: _toDate),
-      locale: const Locale('ru'),
     );
     if (picked == null) {
       return;
@@ -266,9 +267,7 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
       );
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Не удалось сформировать PDF: $error')),
-        );
+        showAdaptiveMessage(context, 'Не удалось сформировать PDF: $error');
       }
     } finally {
       if (mounted) {
