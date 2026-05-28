@@ -190,31 +190,33 @@ class AppDatabase extends _$AppDatabase {
         onCreate: (m) => m.createAll(),
         onUpgrade: (m, from, to) async {
           if (from < 2) {
-            await m.createTable(appSettingEntries);
+            await _createTableIfMissing(m, appSettingEntries);
           }
           if (from < 3) {
-            await m.createTable(userProfileEntries);
+            await _createTableIfMissing(m, userProfileEntries);
           }
           if (from < 4) {
-            await m.addColumn(
-                userProfileEntries, userProfileEntries.avatarData);
+            await _addColumnIfMissing(
+                m, userProfileEntries, userProfileEntries.avatarData);
           }
           if (from < 5) {
-            await m.createTable(medicalMediaEntries);
+            await _createTableIfMissing(m, medicalMediaEntries);
           }
           if (from < 6) {
-            await m.addColumn(userProfileEntries, userProfileEntries.birthDate);
+            await _addColumnIfMissing(
+                m, userProfileEntries, userProfileEntries.birthDate);
           }
           if (from < 7) {
-            await m.createTable(sleepLogEntries);
+            await _createTableIfMissing(m, sleepLogEntries);
           }
           if (from < 8) {
-            await m.createTable(weightLogEntries);
+            await _createTableIfMissing(m, weightLogEntries);
           }
           if (from < 9) {
-            await m.addColumn(
-                medicationIntakeEntries, medicationIntakeEntries.takenAt);
-            await m.addColumn(
+            await _addColumnIfMissing(
+                m, medicationIntakeEntries, medicationIntakeEntries.takenAt);
+            await _addColumnIfMissing(
+              m,
               medicationIntakeEntries,
               medicationIntakeEntries.countsForStreak,
             );
@@ -369,5 +371,29 @@ class AppDatabase extends _$AppDatabase {
       await delete(appSettingEntries).go();
       await delete(userProfileEntries).go();
     });
+  }
+
+  Future<void> _createTableIfMissing(Migrator m, TableInfo table) async {
+    final tableName = table.actualTableName;
+    final rows = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable<String>(tableName)],
+    ).get();
+    if (rows.isEmpty) {
+      await m.createTable(table);
+    }
+  }
+
+  Future<void> _addColumnIfMissing(
+    Migrator m,
+    TableInfo table,
+    GeneratedColumn column,
+  ) async {
+    final tableName = table.actualTableName;
+    final rows = await customSelect('PRAGMA table_info($tableName)').get();
+    final hasColumn = rows.any((row) => row.data['name'] == column.name);
+    if (!hasColumn) {
+      await m.addColumn(table, column);
+    }
   }
 }

@@ -45,8 +45,11 @@ class AppState extends ChangeNotifier {
   var _demoWeightDataEnabled = false;
   var _demoMedicationDataEnabled = false;
   var _isSeedingDemoData = false;
+  Object? _loadError;
 
   bool get isLoaded => _isLoaded;
+
+  Object? get loadError => _loadError;
 
   bool get hasCompletedOnboarding => _hasCompletedOnboarding;
 
@@ -686,6 +689,18 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _load() async {
+    try {
+      await _loadUnsafe();
+    } catch (error, stackTrace) {
+      debugPrint('AppState load failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      _loadError = error;
+      _isLoaded = true;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _loadUnsafe() async {
     final settings = await _database.getSettings();
     final labs = await _database.getLabResults();
     final plans = await _database.getMedicationPlans();
@@ -780,6 +795,7 @@ class AppState extends ChangeNotifier {
             .map((intake) => _dateOnly(intake.date)),
       );
 
+    _loadError = null;
     _isLoaded = true;
     notifyListeners();
   }

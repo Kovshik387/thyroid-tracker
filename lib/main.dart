@@ -68,6 +68,14 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
               ),
             );
           }
+          if (state.loadError != null) {
+            return _StandaloneScreen(
+              child: _StartupErrorScreen(
+                error: state.loadError!,
+                onReset: () => state.resetToDefaults(),
+              ),
+            );
+          }
           if (!state.hasCompletedOnboarding) {
             return const _StandaloneScreen(
               child: OnboardingScreen(),
@@ -95,6 +103,53 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
     NotificationService.instance.syncMedicationReminders(
       plans: _appState.medicationPlans,
       enabled: _appState.medicationNotificationsEnabled,
+    );
+  }
+}
+
+class _StartupErrorScreen extends StatelessWidget {
+  const _StartupErrorScreen({
+    required this.error,
+    required this.onReset,
+  });
+
+  final Object error;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.error_outline, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'Не удалось запустить ТироДневник',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '$error',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: onReset,
+                  child: const Text('Сбросить локальные данные'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
