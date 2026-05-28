@@ -59,14 +59,12 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
         builder: (context, child) {
           final state = AppScope.watch(context);
           if (!state.isLoaded) {
-            return _StandaloneScreen(
-              child: _StartupLoadingScreen(
-                appState: state,
-              ),
+            return _StartupLoadingScreen(
+              appState: state,
             );
           }
           if (state.loadError != null) {
-            return _StandaloneScreen(
+            return _StandaloneNavigator(
               child: _StartupErrorScreen(
                 error: state.loadError!,
                 onReset: () => state.resetToDefaults(),
@@ -74,7 +72,7 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
             );
           }
           if (!state.hasCompletedOnboarding) {
-            return const _StandaloneScreen(
+            return const _StandaloneNavigator(
               child: OnboardingScreen(),
             );
           }
@@ -218,19 +216,20 @@ class _StartupErrorScreen extends StatelessWidget {
   }
 }
 
-class _StandaloneScreen extends StatelessWidget {
-  const _StandaloneScreen({required this.child});
+class _StandaloneNavigator extends StatelessWidget {
+  const _StandaloneNavigator({required this.child});
 
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Overlay(
-      initialEntries: [
-        OverlayEntry(
-          builder: (context) => child,
+    return Navigator(
+      pages: [
+        MaterialPage<void>(
+          child: child,
         ),
       ],
+      onDidRemovePage: (_) {},
     );
   }
 }
