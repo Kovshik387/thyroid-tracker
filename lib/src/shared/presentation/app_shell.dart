@@ -18,9 +18,6 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  var _contentOffset = Offset.zero;
-  var _contentOpacity = 1.0;
-
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
@@ -32,17 +29,7 @@ class _AppShellState extends State<AppShell> {
         onHorizontalDragEnd: _supportsSwipeNavigation
             ? (details) => _handleHorizontalDrag(details)
             : null,
-        child: AnimatedSlide(
-          offset: _contentOffset,
-          duration: const Duration(milliseconds: 230),
-          curve: Curves.easeOutCubic,
-          child: AnimatedOpacity(
-            opacity: _contentOpacity,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOut,
-            child: RepaintBoundary(child: navigationShell),
-          ),
-        ),
+        child: navigationShell,
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -93,9 +80,6 @@ class _AppShellState extends State<AppShell> {
 
   void _goBranch(int index) {
     final currentIndex = widget.navigationShell.currentIndex;
-    if (index != currentIndex) {
-      _animateContentIn(index > currentIndex ? 1 : -1);
-    }
     widget.navigationShell.goBranch(
       index,
       initialLocation: index == currentIndex,
@@ -122,26 +106,6 @@ class _AppShellState extends State<AppShell> {
       return;
     }
     _goBranch(nextIndex);
-  }
-
-  void _animateContentIn(int direction) {
-    if (!_supportsSwipeNavigation) {
-      return;
-    }
-
-    setState(() {
-      _contentOffset = Offset(direction * 0.045, 0);
-      _contentOpacity = 0.92;
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _contentOffset = Offset.zero;
-        _contentOpacity = 1;
-      });
-    });
   }
 }
 

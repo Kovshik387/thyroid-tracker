@@ -12,14 +12,21 @@ import '../features/report/presentation/doctor_report_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
 import '../features/sleep/presentation/sleep_screen.dart';
 import '../features/weight/presentation/weight_screen.dart';
+import '../shared/presentation/animated_branch_container.dart';
 import '../shared/presentation/app_shell.dart';
 
 final appRouter = GoRouter(
   initialLocation: AppRoute.overview.path,
   routes: [
-    StatefulShellRoute.indexedStack(
+    StatefulShellRoute(
       builder: (context, state, navigationShell) {
         return AppShell(navigationShell: navigationShell);
+      },
+      navigatorContainerBuilder: (context, navigationShell, children) {
+        return AnimatedBranchContainer(
+          currentIndex: navigationShell.currentIndex,
+          children: children,
+        );
       },
       branches: [
         _branch(AppRoute.overview, const OverviewScreen()),
