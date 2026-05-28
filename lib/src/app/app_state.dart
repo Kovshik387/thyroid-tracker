@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
@@ -14,6 +15,8 @@ import '../features/sleep/domain/sleep_log.dart';
 import '../features/weight/domain/weight_log.dart';
 
 class AppState extends ChangeNotifier {
+  static const _verboseStartupLogs = false;
+
   AppState({AppDatabase? database}) : _database = database ?? AppDatabase() {
     _loadWatchdog = Timer(const Duration(seconds: 10), () {
       if (!_isLoaded) {
@@ -58,6 +61,8 @@ class AppState extends ChangeNotifier {
   var _demoMedicationDataEnabled = false;
   var _isSeedingDemoData = false;
   Object? _loadError;
+  Future<void>? _loadFuture;
+  var _loadAgain = false;
 
   bool get isLoaded => _isLoaded;
 
@@ -92,32 +97,25 @@ class AppState extends ChangeNotifier {
 
   bool get demoMedicationDataEnabled => _demoMedicationDataEnabled;
 
-  List<LabResult> get labs => List.unmodifiable(
-        [..._labs]..sort((a, b) => a.date.compareTo(b.date)),
-      );
+  UnmodifiableListView<LabResult> get labs => UnmodifiableListView(_labs);
 
-  List<MedicationPlan> get medicationPlans =>
-      List.unmodifiable(_medicationPlans);
+  UnmodifiableListView<MedicationPlan> get medicationPlans =>
+      UnmodifiableListView(_medicationPlans);
 
-  List<DoctorVisit> get doctorVisits => List.unmodifiable(
-        [..._doctorVisits]..sort((a, b) => b.date.compareTo(a.date)),
-      );
+  UnmodifiableListView<DoctorVisit> get doctorVisits =>
+      UnmodifiableListView(_doctorVisits);
 
-  List<MedicalMedia> get medicalMedia => List.unmodifiable(
-        [..._medicalMedia]..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-      );
+  UnmodifiableListView<MedicalMedia> get medicalMedia =>
+      UnmodifiableListView(_medicalMedia);
 
-  List<SleepLog> get sleepLogs => List.unmodifiable(
-        [..._sleepLogs]..sort((a, b) => b.date.compareTo(a.date)),
-      );
+  UnmodifiableListView<SleepLog> get sleepLogs =>
+      UnmodifiableListView(_sleepLogs);
 
-  List<WeightLog> get weightLogs => List.unmodifiable(
-        [..._weightLogs]..sort((a, b) => b.date.compareTo(a.date)),
-      );
+  UnmodifiableListView<WeightLog> get weightLogs =>
+      UnmodifiableListView(_weightLogs);
 
-  List<MedicationIntake> get medicationIntakes => List.unmodifiable(
-        [..._medicationIntakes]..sort((a, b) => b.date.compareTo(a.date)),
-      );
+  UnmodifiableListView<MedicationIntake> get medicationIntakes =>
+      UnmodifiableListView(_medicationIntakes);
 
   Set<DateTime> get takenMedicationDays =>
       Set.unmodifiable(_takenMedicationDays);
@@ -701,7 +699,29 @@ class AppState extends ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load() {
+    final currentLoad = _loadFuture;
+    if (currentLoad != null) {
+      _loadAgain = true;
+      return currentLoad;
+    }
+
+    _loadFuture = _loadQueued();
+    return _loadFuture!;
+  }
+
+  Future<void> _loadQueued() async {
+    try {
+      do {
+        _loadAgain = false;
+        await _loadOnce();
+      } while (_loadAgain);
+    } finally {
+      _loadFuture = null;
+    }
+  }
+
+  Future<void> _loadOnce() async {
     try {
       await _loadUnsafe().timeout(const Duration(seconds: 8));
     } catch (error, stackTrace) {
@@ -715,25 +735,25 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _loadUnsafe() async {
-    debugPrint('AppState load step: settings');
+    _logLoadStep('settings');
     final settings = await _database.getSettings();
-    debugPrint('AppState load step: labs');
+    _logLoadStep('labs');
     final labs = await _database.getLabResults();
-    debugPrint('AppState load step: medication plans');
+    _logLoadStep('medication plans');
     final plans = await _database.getMedicationPlans();
-    debugPrint('AppState load step: doctor visits');
+    _logLoadStep('doctor visits');
     final visits = await _database.getDoctorVisits();
-    debugPrint('AppState load step: medication intakes');
+    _logLoadStep('medication intakes');
     final intakes = await _database.getMedicationIntakes();
-    debugPrint('AppState load step: profile');
+    _logLoadStep('profile');
     final profile = await _database.getUserProfile();
-    debugPrint('AppState load step: media');
+    _logLoadStep('media');
     final media = await _database.getMedicalMedia();
-    debugPrint('AppState load step: sleep logs');
+    _logLoadStep('sleep logs');
     final sleepLogs = await _database.getSleepLogs();
-    debugPrint('AppState load step: weight logs');
+    _logLoadStep('weight logs');
     final weightLogs = await _database.getWeightLogs();
-    debugPrint('AppState load step: apply state');
+    _logLoadStep('apply state');
 
     _hasCompletedOnboarding = settings['onboardingCompleted'] == 'true';
     _labControlDays = int.tryParse(settings['labControlDays'] ?? '') ?? 90;
@@ -764,48 +784,58 @@ class AppState extends ChangeNotifier {
       await _seedDemoLabResults();
       await _database.saveSetting('demoLabDataVersion', demoLabDataVersion);
       _isSeedingDemoData = false;
-      return _load();
+      _loadAgain = true;
+      return;
     }
 
     if (_demoSleepDataEnabled &&
         sleepLogs.every((log) => !log.id.startsWith('demo-sleep-'))) {
       await _seedDemoSleepLogs();
-      return _load();
+      _loadAgain = true;
+      return;
     }
 
     if (_demoWeightDataEnabled &&
         weightLogs.every((log) => !log.id.startsWith('demo-weight-'))) {
       await _seedDemoWeightLogs();
-      return _load();
+      _loadAgain = true;
+      return;
     }
 
     if (_demoMedicationDataEnabled &&
         intakes.every((intake) => !intake.id.startsWith('demo-intake-'))) {
       await _seedDemoMedicationIntakes();
-      return _load();
+      _loadAgain = true;
+      return;
     }
 
     _labs
       ..clear()
-      ..addAll(labs.map(_labFromRow));
+      ..addAll(labs.map(_labFromRow))
+      ..sort((a, b) => a.date.compareTo(b.date));
     _medicationPlans
       ..clear()
       ..addAll(plans.map(_medicationPlanFromRow));
     _doctorVisits
       ..clear()
-      ..addAll(visits.map(_doctorVisitFromRow));
+      ..addAll(visits.map(_doctorVisitFromRow))
+      ..sort((a, b) => b.date.compareTo(a.date));
     _medicalMedia
       ..clear()
-      ..addAll(media.map(_medicalMediaFromRow));
+      ..addAll(media.map(_medicalMediaFromRow))
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     _sleepLogs
       ..clear()
-      ..addAll(sleepLogs.map(_sleepLogFromRow));
+      ..addAll(sleepLogs.map(_sleepLogFromRow))
+      ..sort((a, b) => b.date.compareTo(a.date));
     _weightLogs
       ..clear()
-      ..addAll(weightLogs.map(_weightLogFromRow));
+      ..addAll(weightLogs.map(_weightLogFromRow))
+      ..sort((a, b) => b.date.compareTo(a.date));
     _medicationIntakes
       ..clear()
-      ..addAll(intakes.map(_medicationIntakeFromRow));
+      ..addAll(intakes.map(_medicationIntakeFromRow))
+      ..sort((a, b) => b.date.compareTo(a.date));
     _userProfile = profile == null ? null : _userProfileFromRow(profile);
     _takenMedicationDates
       ..clear()
@@ -822,8 +852,14 @@ class AppState extends ChangeNotifier {
     _loadError = null;
     _isLoaded = true;
     _loadWatchdog?.cancel();
-    debugPrint('AppState load step: complete');
+    _logLoadStep('complete');
     notifyListeners();
+  }
+
+  void _logLoadStep(String step) {
+    if (_verboseStartupLogs) {
+      debugPrint('AppState load step: $step');
+    }
   }
 
   String _intakeKey(String medicationId, DateTime date) {

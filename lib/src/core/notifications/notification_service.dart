@@ -19,9 +19,7 @@ class NotificationService {
       return;
     }
 
-    debugPrint('NotificationService step: initialize time zones');
     tz.initializeTimeZones();
-    debugPrint('NotificationService step: initialize plugin');
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwin = DarwinInitializationSettings(
@@ -40,7 +38,6 @@ class NotificationService {
 
     await _requestPermissions();
     _isInitialized = true;
-    debugPrint('NotificationService step: complete');
   }
 
   Future<void> syncMedicationReminders({
@@ -51,7 +48,6 @@ class NotificationService {
       return;
     }
 
-    await initialize();
     final signature = enabled
         ? plans
             .map((plan) =>
@@ -64,6 +60,7 @@ class NotificationService {
     }
     _lastSignature = signature;
 
+    await initialize();
     await _cancelMedicationReminders();
     if (!enabled) {
       return;

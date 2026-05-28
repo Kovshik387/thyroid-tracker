@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -95,9 +97,15 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
     if (!_appState.isLoaded) {
       return;
     }
-    NotificationService.instance.syncMedicationReminders(
-      plans: _appState.medicationPlans,
-      enabled: _appState.medicationNotificationsEnabled,
+    unawaited(
+      NotificationService.instance
+          .syncMedicationReminders(
+        plans: _appState.medicationPlans,
+        enabled: _appState.medicationNotificationsEnabled,
+      )
+          .catchError((Object error, StackTrace stackTrace) {
+        debugPrint('Notification sync failed: $error');
+      }),
     );
   }
 }
@@ -151,7 +159,7 @@ class _StartupLoadingScreenState extends State<_StartupLoadingScreen> {
                 const SizedBox(height: 12),
                 Text(
                   'Скорее всего, приложение зависло на открытии локальной базы. '
-                  'Откройте лог Flutter и найдите строку "AppState load step".',
+                  'Откройте лог Flutter и найдите строку "AppState load failed".',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),

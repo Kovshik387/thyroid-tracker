@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/design_tokens.dart';
 import 'adaptive_icon.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends StatefulWidget {
   const AppShell({
     required this.navigationShell,
     super.key,
@@ -14,8 +14,17 @@ class AppShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
   @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  var _contentOffset = Offset.zero;
+  var _contentOpacity = 1.0;
+
+  @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final navigationShell = widget.navigationShell;
 
     return Scaffold(
       body: GestureDetector(
@@ -23,7 +32,17 @@ class AppShell extends StatelessWidget {
         onHorizontalDragEnd: _supportsSwipeNavigation
             ? (details) => _handleHorizontalDrag(details)
             : null,
-        child: RepaintBoundary(child: navigationShell),
+        child: AnimatedSlide(
+          offset: _contentOffset,
+          duration: const Duration(milliseconds: 230),
+          curve: Curves.easeOutCubic,
+          child: AnimatedOpacity(
+            opacity: _contentOpacity,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            child: RepaintBoundary(child: navigationShell),
+          ),
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -73,9 +92,13 @@ class AppShell extends StatelessWidget {
   }
 
   void _goBranch(int index) {
-    navigationShell.goBranch(
+    final currentIndex = widget.navigationShell.currentIndex;
+    if (index != currentIndex) {
+      _animateContentIn(index > currentIndex ? 1 : -1);
+    }
+    widget.navigationShell.goBranch(
       index,
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == currentIndex,
     );
   }
 
@@ -93,12 +116,32 @@ class AppShell extends StatelessWidget {
       return;
     }
 
-    final currentIndex = navigationShell.currentIndex;
+    final currentIndex = widget.navigationShell.currentIndex;
     final nextIndex = velocity < 0 ? currentIndex + 1 : currentIndex - 1;
     if (nextIndex < 0 || nextIndex > 3) {
       return;
     }
     _goBranch(nextIndex);
+  }
+
+  void _animateContentIn(int direction) {
+    if (!_supportsSwipeNavigation) {
+      return;
+    }
+
+    setState(() {
+      _contentOffset = Offset(direction * 0.045, 0);
+      _contentOpacity = 0.92;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _contentOffset = Offset.zero;
+        _contentOpacity = 1;
+      });
+    });
   }
 }
 
