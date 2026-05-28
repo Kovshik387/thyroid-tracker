@@ -34,9 +34,6 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
     super.initState();
     if (_ownsState) {
       _appState.addListener(_syncNotifications);
-      NotificationService.instance.initialize().then((_) {
-        _syncNotifications();
-      });
     }
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
@@ -13,10 +15,20 @@ import '../features/weight/domain/weight_log.dart';
 
 class AppState extends ChangeNotifier {
   AppState({AppDatabase? database}) : _database = database ?? AppDatabase() {
+    _loadWatchdog = Timer(const Duration(seconds: 10), () {
+      if (!_isLoaded) {
+        debugPrint('AppState load watchdog fired');
+        _loadError =
+            TimeoutException('Стартовая загрузка заняла больше 10 секунд');
+        _isLoaded = true;
+        notifyListeners();
+      }
+    });
     _load();
   }
 
   final AppDatabase _database;
+  Timer? _loadWatchdog;
   final List<LabResult> _labs = [];
   final List<MedicationPlan> _medicationPlans = [];
   final List<DoctorVisit> _doctorVisits = [];
@@ -684,6 +696,7 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    _loadWatchdog?.cancel();
     _database.close();
     super.dispose();
   }
@@ -696,6 +709,7 @@ class AppState extends ChangeNotifier {
       debugPrintStack(stackTrace: stackTrace);
       _loadError = error;
       _isLoaded = true;
+      _loadWatchdog?.cancel();
       notifyListeners();
     }
   }
@@ -807,6 +821,7 @@ class AppState extends ChangeNotifier {
 
     _loadError = null;
     _isLoaded = true;
+    _loadWatchdog?.cancel();
     debugPrint('AppState load step: complete');
     notifyListeners();
   }
