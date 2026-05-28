@@ -49,34 +49,48 @@ class _AnimatedBranchContainerState extends State<AnimatedBranchContainer>
   @override
   Widget build(BuildContext context) {
     return ClipRect(
-      child: AnimatedBuilder(
-        animation: _animation,
-        builder: (context, _) {
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              for (var index = 0; index < widget.children.length; index++)
-                _BranchSlot(
-                  isActive: index == widget.currentIndex,
-                  isOutgoing: index == _previousIndex,
-                  offset: _offsetFor(index),
-                  child: widget.children[index],
-                ),
-            ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+
+          return AnimatedBuilder(
+            animation: _animation,
+            builder: (context, _) {
+              final previousIndex = _previousIndex;
+              if (previousIndex == null) {
+                return _BranchSlot(
+                  isActive: true,
+                  child: widget.children[widget.currentIndex],
+                );
+              }
+
+              final previousOffset = -_direction * _animation.value * width;
+              final currentOffset = _direction * (1 - _animation.value) * width;
+
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  Transform.translate(
+                    offset: Offset(previousOffset, 0),
+                    child: _BranchSlot(
+                      isActive: false,
+                      child: widget.children[previousIndex],
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: Offset(currentOffset, 0),
+                    child: _BranchSlot(
+                      isActive: true,
+                      child: widget.children[widget.currentIndex],
+                    ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
     );
-  }
-
-  Offset _offsetFor(int index) {
-    if (index == widget.currentIndex) {
-      return Offset(_direction * (1 - _animation.value), 0);
-    }
-    if (index == _previousIndex) {
-      return Offset(-_direction * _animation.value * 0.28, 0);
-    }
-    return Offset.zero;
   }
 
   @override
@@ -89,31 +103,19 @@ class _AnimatedBranchContainerState extends State<AnimatedBranchContainer>
 class _BranchSlot extends StatelessWidget {
   const _BranchSlot({
     required this.isActive,
-    required this.isOutgoing,
-    required this.offset,
     required this.child,
   });
 
   final bool isActive;
-  final bool isOutgoing;
-  final Offset offset;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final isVisible = isActive || isOutgoing;
-
-    return Offstage(
-      offstage: !isVisible,
-      child: TickerMode(
-        enabled: isActive,
-        child: IgnorePointer(
-          ignoring: !isActive,
-          child: FractionalTranslation(
-            translation: offset,
-            child: RepaintBoundary(child: child),
-          ),
-        ),
+    return TickerMode(
+      enabled: isActive,
+      child: IgnorePointer(
+        ignoring: !isActive,
+        child: RepaintBoundary(child: child),
       ),
     );
   }
