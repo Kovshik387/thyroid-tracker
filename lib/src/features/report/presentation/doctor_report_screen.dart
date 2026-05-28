@@ -165,7 +165,7 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
           footer: (context) => pw.Align(
             alignment: pw.Alignment.centerRight,
             child: pw.Text(
-              'TiroCare · ${context.pageNumber}/${context.pagesCount}',
+              'ТироДневник · ${context.pageNumber}/${context.pagesCount}',
               style: pw.TextStyle(font: font, fontSize: 9),
             ),
           ),
@@ -262,7 +262,7 @@ class _DoctorReportScreenState extends State<DoctorReportScreen> {
       final bytes = await document.save();
       await savePdfFile(
         bytes: bytes,
-        fileName: 'tirocare-endocrinologist-report.pdf',
+        fileName: 'tirodnevnik-endocrinologist-report.pdf',
       );
     } catch (error) {
       if (mounted) {
@@ -334,7 +334,7 @@ pw.Widget _logo(pw.Font font) {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'TiroCare',
+            'ТироДневник',
             style: pw.TextStyle(
               font: font,
               fontSize: 16,

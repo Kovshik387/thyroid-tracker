@@ -45,7 +45,7 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
     return AppScope(
       state: _appState,
       child: MaterialApp.router(
-        title: 'Thyroid Tracker',
+        title: 'ТироДневник',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         routerConfig: appRouter,
@@ -62,12 +62,16 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
         builder: (context, child) {
           final state = AppScope.watch(context);
           if (!state.isLoaded) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+            return _StandaloneScreen(
+              child: const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              ),
             );
           }
           if (!state.hasCompletedOnboarding) {
-            return const OnboardingScreen();
+            return const _StandaloneScreen(
+              child: OnboardingScreen(),
+            );
           }
           return child ?? const SizedBox.shrink();
         },
@@ -91,6 +95,23 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
     NotificationService.instance.syncMedicationReminders(
       plans: _appState.medicationPlans,
       enabled: _appState.medicationNotificationsEnabled,
+    );
+  }
+}
+
+class _StandaloneScreen extends StatelessWidget {
+  const _StandaloneScreen({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Overlay(
+      initialEntries: [
+        OverlayEntry(
+          builder: (context) => child,
+        ),
+      ],
     );
   }
 }
