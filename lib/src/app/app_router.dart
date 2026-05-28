@@ -32,53 +32,61 @@ final appRouter = GoRouter(
       path: AppRoute.doctor.path,
       name: AppRoute.doctor.name,
       pageBuilder: (context, state) {
-        return const NoTransitionPage(child: DoctorScreen());
+        return _cupertinoBackPage(state, const DoctorScreen());
       },
     ),
     GoRoute(
       path: AppRoute.media.path,
       name: AppRoute.media.name,
       pageBuilder: (context, state) {
-        return const NoTransitionPage(child: MediaScreen());
+        return _cupertinoBackPage(state, const MediaScreen());
       },
     ),
     GoRoute(
       path: AppRoute.knowledge.path,
       name: AppRoute.knowledge.name,
       pageBuilder: (context, state) {
-        return const NoTransitionPage(child: KnowledgeScreen());
+        return _cupertinoBackPage(state, const KnowledgeScreen());
       },
     ),
     GoRoute(
       path: AppRoute.settings.path,
       name: AppRoute.settings.name,
       pageBuilder: (context, state) {
-        return const NoTransitionPage(child: SettingsScreen());
+        return _cupertinoBackPage(state, const SettingsScreen());
       },
     ),
     GoRoute(
       path: AppRoute.sleep.path,
       name: AppRoute.sleep.name,
       pageBuilder: (context, state) {
-        return const NoTransitionPage(child: SleepScreen());
+        return _cupertinoBackPage(state, const SleepScreen());
       },
     ),
     GoRoute(
       path: AppRoute.weight.path,
       name: AppRoute.weight.name,
       pageBuilder: (context, state) {
-        return const NoTransitionPage(child: WeightScreen());
+        return _cupertinoBackPage(state, const WeightScreen());
       },
     ),
     GoRoute(
       path: AppRoute.report.path,
       name: AppRoute.report.name,
       pageBuilder: (context, state) {
-        return const NoTransitionPage(child: DoctorReportScreen());
+        return _cupertinoBackPage(state, const DoctorReportScreen());
       },
     ),
   ],
 );
+
+Page<void> _cupertinoBackPage(GoRouterState state, Widget child) {
+  return MaterialPage(
+    key: state.pageKey,
+    name: state.name,
+    child: child,
+  );
+}
 
 StatefulShellBranch _branch(AppRoute route, Widget screen) {
   return StatefulShellBranch(
