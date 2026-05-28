@@ -63,8 +63,8 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
           final state = AppScope.watch(context);
           if (!state.isLoaded) {
             return _StandaloneScreen(
-              child: const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
+              child: _StartupLoadingScreen(
+                appState: state,
               ),
             );
           }
@@ -103,6 +103,73 @@ class _ThyroidTrackerAppState extends State<ThyroidTrackerApp> {
     NotificationService.instance.syncMedicationReminders(
       plans: _appState.medicationPlans,
       enabled: _appState.medicationNotificationsEnabled,
+    );
+  }
+}
+
+class _StartupLoadingScreen extends StatefulWidget {
+  const _StartupLoadingScreen({required this.appState});
+
+  final AppState appState;
+
+  @override
+  State<_StartupLoadingScreen> createState() => _StartupLoadingScreenState();
+}
+
+class _StartupLoadingScreenState extends State<_StartupLoadingScreen> {
+  var _isTakingTooLong = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(const Duration(seconds: 10), () {
+      if (mounted && !widget.appState.isLoaded) {
+        setState(() => _isTakingTooLong = true);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isTakingTooLong) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.hourglass_disabled_outlined, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'Загрузка заняла слишком много времени',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Скорее всего, приложение зависло на открытии локальной базы. '
+                  'Откройте лог Flutter и найдите строку "AppState load step".',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: widget.appState.resetToDefaults,
+                  child: const Text('Сбросить локальные данные'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

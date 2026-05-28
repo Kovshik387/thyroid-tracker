@@ -701,15 +701,25 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _loadUnsafe() async {
+    debugPrint('AppState load step: settings');
     final settings = await _database.getSettings();
+    debugPrint('AppState load step: labs');
     final labs = await _database.getLabResults();
+    debugPrint('AppState load step: medication plans');
     final plans = await _database.getMedicationPlans();
+    debugPrint('AppState load step: doctor visits');
     final visits = await _database.getDoctorVisits();
+    debugPrint('AppState load step: medication intakes');
     final intakes = await _database.getMedicationIntakes();
+    debugPrint('AppState load step: profile');
     final profile = await _database.getUserProfile();
+    debugPrint('AppState load step: media');
     final media = await _database.getMedicalMedia();
+    debugPrint('AppState load step: sleep logs');
     final sleepLogs = await _database.getSleepLogs();
+    debugPrint('AppState load step: weight logs');
     final weightLogs = await _database.getWeightLogs();
+    debugPrint('AppState load step: apply state');
 
     _hasCompletedOnboarding = settings['onboardingCompleted'] == 'true';
     _labControlDays = int.tryParse(settings['labControlDays'] ?? '') ?? 90;
@@ -797,6 +807,7 @@ class AppState extends ChangeNotifier {
 
     _loadError = null;
     _isLoaded = true;
+    debugPrint('AppState load step: complete');
     notifyListeners();
   }
 
