@@ -10,6 +10,7 @@ import '../domain/lab_evaluator.dart';
 import '../domain/lab_result.dart';
 import '../domain/lab_trend_analyzer.dart';
 import '../../../shared/presentation/adaptive_picker.dart';
+import '../../../shared/presentation/adaptive_message.dart';
 import '../../../shared/presentation/app_card.dart';
 import '../../../shared/presentation/screen_frame.dart';
 import '../../../shared/presentation/status_chip.dart';
@@ -130,8 +131,8 @@ class _LabsScreenState extends State<LabsScreen> {
           content: SingleChildScrollView(
             child: _LabsFormCard(
               compact: true,
-              onSubmit: (entry) {
-                _saveEntry(context, entry);
+              onSubmit: (entry) async {
+                await _saveEntry(context, entry);
                 Navigator.of(context).pop();
               },
             ),
@@ -141,13 +142,21 @@ class _LabsScreenState extends State<LabsScreen> {
     );
   }
 
-  void _saveEntry(BuildContext context, _LabEntry entry) {
-    AppScope.read(context).addLab(
+  Future<void> _saveEntry(BuildContext context, _LabEntry entry) async {
+    await AppScope.read(context).addLab(
       date: entry.date,
       tsh: entry.tsh,
       freeT4: entry.freeT4,
       freeT3: entry.freeT3,
       comment: entry.comment,
+    );
+    if (!context.mounted) {
+      return;
+    }
+    showAdaptiveMessage(
+      context,
+      'Данные анализа добавлены',
+      type: AppMessageType.success,
     );
   }
 
@@ -190,14 +199,22 @@ class _LabsScreenState extends State<LabsScreen> {
               compact: true,
               initial: result,
               submitLabel: 'Сохранить',
-              onSubmit: (entry) {
-                AppScope.read(context).updateLab(
+              onSubmit: (entry) async {
+                await AppScope.read(context).updateLab(
                   id: result.id,
                   date: entry.date,
                   tsh: entry.tsh,
                   freeT4: entry.freeT4,
                   freeT3: entry.freeT3,
                   comment: entry.comment,
+                );
+                if (!context.mounted) {
+                  return;
+                }
+                showAdaptiveMessage(
+                  context,
+                  'Запись анализа обновлена',
+                  type: AppMessageType.success,
                 );
                 Navigator.of(context).pop();
               },
@@ -267,7 +284,7 @@ class _LabsFormCard extends StatefulWidget {
     this.submitLabel = 'Сохранить',
   });
 
-  final ValueChanged<_LabEntry> onSubmit;
+  final Future<void> Function(_LabEntry entry) onSubmit;
   final bool compact;
   final LabResult? initial;
   final String submitLabel;
@@ -412,12 +429,14 @@ class _LabsFormCardState extends State<_LabsFormCard> {
     _dateController.text = DateFormat('dd.MM.yyyy').format(picked);
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    widget.onSubmit(
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    await widget.onSubmit(
       _LabEntry(
         date: _parseDate(_dateController.text) ?? DateTime.now(),
         tsh: _parseNumber(_tshController.text),

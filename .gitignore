@@ -12,3 +12,8 @@ macos/Pods/
 *.iml
 .idea/
 .vscode/
+
+# Diploma / ВКР artifacts
+diploma/
+*.docx
+~$*.docx

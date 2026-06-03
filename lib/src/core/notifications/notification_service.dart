@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -20,6 +21,7 @@ class NotificationService {
     }
 
     tz.initializeTimeZones();
+    await _configureLocalTimezone();
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwin = DarwinInitializationSettings(
@@ -103,6 +105,16 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             MacOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(alert: true, badge: true, sound: true);
+  }
+
+  Future<void> _configureLocalTimezone() async {
+    try {
+      final timezone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timezone.identifier));
+    } catch (error) {
+      debugPrint('Failed to configure local timezone: $error');
+      tz.setLocalLocation(tz.local);
+    }
   }
 
   Future<void> _cancelMedicationReminders() async {
