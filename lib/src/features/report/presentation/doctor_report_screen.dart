@@ -391,7 +391,7 @@ pw.Widget _labTable(pw.Font font, List<LabResult> labs) {
         pw.TableRow(
           children: [
             _tableCell(font, DateFormat('dd.MM.yyyy').format(lab.date)),
-            _tableCell(font, _formatMetric(lab.tsh, '')),
+            _tableCell(font, _formatMetric(lab.tsh, '', decimals: 3)),
             _tableCell(font, _formatMetric(lab.freeT4, '')),
             _tableCell(font, _formatMetric(lab.freeT3, '')),
           ],
@@ -414,16 +414,24 @@ pw.Widget _tableCell(pw.Font font, String text, {bool bold = false}) {
   );
 }
 
-String _formatMetric(double? value, String unit) {
+String _formatMetric(double? value, String unit, {int decimals = 1}) {
   if (value == null) {
     return '-';
   }
-  final formatted =
-      value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 1);
+  final formatted = _trimTrailingZeros(value.toStringAsFixed(decimals));
   if (unit.isEmpty) {
     return formatted;
   }
   return '$formatted $unit';
+}
+
+String _trimTrailingZeros(String value) {
+  if (!value.contains('.')) {
+    return value;
+  }
+  return value
+      .replaceFirst(RegExp(r'0+$'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
 }
 
 _SleepSummary _analyzeSleep(List<SleepLog> logs) {

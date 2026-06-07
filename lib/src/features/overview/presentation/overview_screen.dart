@@ -269,7 +269,7 @@ class _LatestLabsCard extends StatelessWidget {
               Expanded(
                 child: _MetricTile(
                   label: 'ТТГ',
-                  value: _format(result!.tsh),
+                  value: _format(result!.tsh, decimals: 3),
                   unit: 'мМЕ/л',
                   status: evaluator.evaluateTsh(result!.tsh, profile).status,
                 ),
@@ -511,11 +511,17 @@ class _QuickActionButton extends StatelessWidget {
   }
 }
 
-String _format(double? value) {
+String _format(double? value, {int decimals = 1}) {
   if (value == null) {
     return '-';
   }
-  return value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 1);
+  final fixed = value.toStringAsFixed(decimals);
+  if (!fixed.contains('.')) {
+    return fixed;
+  }
+  return fixed
+      .replaceFirst(RegExp(r'0+$'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
 }
 
 String _summaryLabel(List<LabStatus> statuses) {

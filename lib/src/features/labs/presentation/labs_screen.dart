@@ -311,11 +311,15 @@ class _LabsFormCardState extends State<_LabsFormCard> {
     if (initial == null) {
       return;
     }
-    _tshController.text = initial.tsh == null ? '' : _formatValue(initial.tsh);
-    _freeT4Controller.text =
-        initial.freeT4 == null ? '' : _formatValue(initial.freeT4);
-    _freeT3Controller.text =
-        initial.freeT3 == null ? '' : _formatValue(initial.freeT3);
+    _tshController.text = initial.tsh == null
+        ? ''
+        : _formatMetricValue(initial.tsh, _ChartMetric.tsh);
+    _freeT4Controller.text = initial.freeT4 == null
+        ? ''
+        : _formatMetricValue(initial.freeT4, _ChartMetric.freeT4);
+    _freeT3Controller.text = initial.freeT3 == null
+        ? ''
+        : _formatMetricValue(initial.freeT3, _ChartMetric.freeT3);
     _commentController.text = initial.comment ?? '';
   }
 
@@ -602,7 +606,7 @@ class _LabsChartCardState extends State<_LabsChartCard> {
                             reservedSize: 36,
                             getTitlesWidget: (value, meta) {
                               return Text(
-                                value.toStringAsFixed(0),
+                                _formatAxisValue(value, _metric),
                                 style: Theme.of(context).textTheme.bodySmall,
                               );
                             },
@@ -664,7 +668,7 @@ class _LabsChartCardState extends State<_LabsChartCard> {
                               final date = chartData.dateForX(item.x);
                               final isForecast = item.barIndex == 1;
                               return LineTooltipItem(
-                                '${isForecast ? 'Прогноз\n' : ''}${_formatValue(item.y)} ${range.unit}\n${DateFormat('dd.MM.yyyy').format(date)}',
+                                '${isForecast ? 'Прогноз\n' : ''}${_formatMetricValue(item.y, _metric)} ${range.unit}\n${DateFormat('dd.MM.yyyy').format(date)}',
                                 TextStyle(
                                   color: isForecast
                                       ? AppColors.amber
@@ -742,7 +746,7 @@ class _LabsChartCardState extends State<_LabsChartCard> {
           if (chartData.forecastSpots.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Прогноз рассчитан методом отношений к центрированной 12-месячной скользящей средней: сезонный индекс умножается на тренд последних 12 месяцев. Это ориентировочная оценка.',
+              'Прогноз рассчитан методом экспоненциального сглаживания: alpha = 0.3, тенденция ослаблена коэффициентом 0.5. Это ориентировочная оценка, а не медицинское назначение.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.muted,
                   ),
@@ -750,7 +754,7 @@ class _LabsChartCardState extends State<_LabsChartCard> {
           ],
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Норма: ${_formatValue(range.min)}-${_formatValue(range.max)} ${range.unit}.',
+            'Норма: ${_formatMetricValue(range.min, _metric)}-${_formatMetricValue(range.max, _metric)} ${range.unit}.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.muted,
                 ),
@@ -833,10 +837,7 @@ class _SingleMetricChartData {
       );
     }
 
-    final forecastSpots = _forecastSpots(
-      rawSpots,
-      startDate: start,
-    );
+    final forecastSpots = _forecastSpots(rawSpots);
     final values = [
       range.min,
       range.max,
@@ -948,175 +949,55 @@ List<FlSpot> _sampleSpots(List<FlSpot> source, {required int maxPoints}) {
   return sampled;
 }
 
-List<FlSpot> _forecastSpots(
-  List<FlSpot> source, {
-  required DateTime startDate,
-}) {
-  const seasonLength = 12;
-  final monthly = _monthlyPoints(source, startDate);
-  if (monthly.length < seasonLength * 2) {
+List<FlSpot> _forecastSpots(List<FlSpot> source) {
+  if (source.length < 3) {
     return const [];
   }
 
-  final centeredMovingAverages = _centeredMovingAverages(
-    monthly,
-    seasonLength: seasonLength,
-  );
-  if (centeredMovingAverages.length < seasonLength) {
+  const alpha = 0.3;
+  const tendencyDamping = 0.5;
+
+  final smoothed = <double>[source.first.y];
+  for (var i = 1; i < source.length; i++) {
+    final current = source[i].y;
+    final previousSmooth = smoothed.last;
+    smoothed.add(alpha * current + (1 - alpha) * previousSmooth);
+  }
+
+  final lastSmoothed = smoothed.last;
+  final previousSmoothed = smoothed[smoothed.length - 2];
+  final delta = lastSmoothed - previousSmoothed;
+  final forecastY =
+      (lastSmoothed + tendencyDamping * delta).clamp(0.0, double.infinity);
+  if (forecastY.isNaN || forecastY.isInfinite) {
     return const [];
   }
 
-  final ratiosByMonth = <int, List<double>>{};
-  for (final entry in centeredMovingAverages.entries) {
-    final point = monthly[entry.key];
-    final movingAverage = entry.value;
-    if (movingAverage <= 0 || point.value <= 0) {
-      continue;
+  final nextX = source.last.x + _nextForecastStep(source);
+  if (nextX <= source.last.x) {
+    return const [];
+  }
+
+  return [
+    FlSpot(source.last.x, lastSmoothed),
+    FlSpot(nextX, forecastY),
+  ];
+}
+
+double _nextForecastStep(List<FlSpot> source) {
+  final gaps = <double>[];
+  for (var i = 1; i < source.length; i++) {
+    final gap = source[i].x - source[i - 1].x;
+    if (gap > 0) {
+      gaps.add(gap);
     }
-    ratiosByMonth
-        .putIfAbsent(point.date.month, () => [])
-        .add(point.value / movingAverage);
   }
-
-  final seasonalIndices = <int, double>{};
-  for (final entry in ratiosByMonth.entries) {
-    final values = entry.value;
-    seasonalIndices[entry.key] =
-        values.fold<double>(0, (sum, value) => sum + value) / values.length;
+  if (gaps.isEmpty) {
+    return 30;
   }
-  if (seasonalIndices.length < seasonLength) {
-    return const [];
-  }
-
-  final indicesAverage =
-      seasonalIndices.values.fold<double>(0, (sum, value) => sum + value) /
-          seasonalIndices.length;
-  if (indicesAverage <= 0) {
-    return const [];
-  }
-  seasonalIndices.updateAll((_, value) => value / indicesAverage);
-
-  final deseasonalized = <_TrendPoint>[];
-  for (var i = 0; i < monthly.length; i++) {
-    final point = monthly[i];
-    final seasonalIndex = seasonalIndices[point.date.month] ?? 1;
-    if (seasonalIndex <= 0) {
-      continue;
-    }
-    deseasonalized.add(_TrendPoint(i.toDouble(), point.value / seasonalIndex));
-  }
-  if (deseasonalized.length < 2) {
-    return const [];
-  }
-
-  final trendPoints = deseasonalized.length > seasonLength
-      ? deseasonalized.sublist(deseasonalized.length - seasonLength)
-      : deseasonalized;
-  final trend = _linearTrend(trendPoints);
-  if (trend == null) {
-    return const [];
-  }
-
-  final lastMonth = monthly.last.date;
-  final lastTrendValue = trend.valueAt((monthly.length - 1).toDouble());
-  final lastSeasonalIndex = seasonalIndices[lastMonth.month] ?? 1;
-  final fittedY =
-      (lastTrendValue * lastSeasonalIndex).clamp(0.0, double.infinity);
-  if (fittedY.isNaN || fittedY.isInfinite) {
-    return const [];
-  }
-
-  final result = <FlSpot>[FlSpot(source.last.x, fittedY)];
-  for (var step = 1; step <= 3; step++) {
-    final forecastMonth = DateTime(lastMonth.year, lastMonth.month + step);
-    final trendValue = trend.valueAt((monthly.length - 1 + step).toDouble());
-    final seasonalIndex = seasonalIndices[forecastMonth.month] ?? 1;
-    final forecastY = (trendValue * seasonalIndex).clamp(0.0, double.infinity);
-    final forecastX = forecastMonth.difference(startDate).inDays.toDouble();
-    if (forecastX <= result.last.x || forecastY.isNaN || forecastY.isInfinite) {
-      return const [];
-    }
-    result.add(FlSpot(forecastX, forecastY));
-  }
-  return result;
-}
-
-Map<int, double> _centeredMovingAverages(
-  List<_MonthlyPoint> monthly, {
-  required int seasonLength,
-}) {
-  final simpleAverages = <double>[];
-  for (var start = 0; start + seasonLength <= monthly.length; start++) {
-    final window = monthly.sublist(start, start + seasonLength);
-    simpleAverages.add(
-      window.fold<double>(0, (sum, point) => sum + point.value) / seasonLength,
-    );
-  }
-
-  final centered = <int, double>{};
-  for (var i = 0; i + 1 < simpleAverages.length; i++) {
-    final monthIndex = i + seasonLength ~/ 2;
-    centered[monthIndex] = (simpleAverages[i] + simpleAverages[i + 1]) / 2;
-  }
-  return centered;
-}
-
-List<_MonthlyPoint> _monthlyPoints(List<FlSpot> source, DateTime startDate) {
-  final valuesByMonth = <DateTime, List<double>>{};
-  for (final spot in source) {
-    final date = startDate.add(Duration(days: spot.x.round()));
-    final month = DateTime(date.year, date.month);
-    valuesByMonth.putIfAbsent(month, () => []).add(spot.y);
-  }
-
-  final points = valuesByMonth.entries.map((entry) {
-    final values = entry.value;
-    final average =
-        values.fold<double>(0, (sum, value) => sum + value) / values.length;
-    return _MonthlyPoint(entry.key, average);
-  }).toList()
-    ..sort((a, b) => a.date.compareTo(b.date));
-
-  return points;
-}
-
-_LinearTrend? _linearTrend(List<_TrendPoint> points) {
-  final count = points.length;
-  final sumX = points.fold<double>(0, (sum, point) => sum + point.x);
-  final sumY = points.fold<double>(0, (sum, point) => sum + point.y);
-  final sumXY = points.fold<double>(0, (sum, point) => sum + point.x * point.y);
-  final sumX2 = points.fold<double>(0, (sum, point) => sum + point.x * point.x);
-  final denominator = count * sumX2 - sumX * sumX;
-  if (denominator == 0) {
-    return null;
-  }
-
-  final slope = (count * sumXY - sumX * sumY) / denominator;
-  final intercept = (sumY - slope * sumX) / count;
-  return _LinearTrend(intercept, slope);
-}
-
-class _MonthlyPoint {
-  const _MonthlyPoint(this.date, this.value);
-
-  final DateTime date;
-  final double value;
-}
-
-class _TrendPoint {
-  const _TrendPoint(this.x, this.y);
-
-  final double x;
-  final double y;
-}
-
-class _LinearTrend {
-  const _LinearTrend(this.intercept, this.slope);
-
-  final double intercept;
-  final double slope;
-
-  double valueAt(double x) => intercept + slope * x;
+  final averageGap =
+      gaps.fold<double>(0, (sum, gap) => sum + gap) / gaps.length;
+  return averageGap.clamp(7.0, 180.0);
 }
 
 double _intervalFor(double maxX) {
@@ -1401,16 +1282,19 @@ class _LabHistoryTile extends StatelessWidget {
                 runSpacing: AppSpacing.xs,
                 children: [
                   _ValueText(
-                    text: 'ТТГ ${_formatValue(result.tsh)}',
+                    text:
+                        'ТТГ ${_formatMetricValue(result.tsh, _ChartMetric.tsh)}',
                     status: evaluator.evaluateTsh(result.tsh, profile).status,
                   ),
                   _ValueText(
-                    text: 'Т4 ${_formatValue(result.freeT4)}',
+                    text:
+                        'Т4 ${_formatMetricValue(result.freeT4, _ChartMetric.freeT4)}',
                     status:
                         evaluator.evaluateFreeT4(result.freeT4, profile).status,
                   ),
                   _ValueText(
-                    text: 'Т3 ${_formatValue(result.freeT3)}',
+                    text:
+                        'Т3 ${_formatMetricValue(result.freeT3, _ChartMetric.freeT3)}',
                     status:
                         evaluator.evaluateFreeT3(result.freeT3, profile).status,
                   ),
@@ -1482,9 +1366,9 @@ class _ReferenceCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'ТТГ ${_formatValue(tshRange.min)}-${_formatValue(tshRange.max)} ${tshRange.unit}; '
-            'Т4 ${_formatValue(freeT4Range.min)}-${_formatValue(freeT4Range.max)} ${freeT4Range.unit}; '
-            'Т3 ${_formatValue(freeT3Range.min)}-${_formatValue(freeT3Range.max)} ${freeT3Range.unit}.',
+            'ТТГ ${_formatMetricValue(tshRange.min, _ChartMetric.tsh)}-${_formatMetricValue(tshRange.max, _ChartMetric.tsh)} ${tshRange.unit}; '
+            'Т4 ${_formatMetricValue(freeT4Range.min, _ChartMetric.freeT4)}-${_formatMetricValue(freeT4Range.max, _ChartMetric.freeT4)} ${freeT4Range.unit}; '
+            'Т3 ${_formatMetricValue(freeT3Range.min, _ChartMetric.freeT3)}-${_formatMetricValue(freeT3Range.max, _ChartMetric.freeT3)} ${freeT3Range.unit}.',
           ),
         ],
       ),
@@ -1526,11 +1410,28 @@ DateTime? _parseDate(String value) {
   return DateTime(year, month, day);
 }
 
-String _formatValue(double? value) {
+String _formatMetricValue(double? value, _ChartMetric metric) {
   if (value == null) {
     return '-';
   }
-  return value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 1);
+  final decimals = metric == _ChartMetric.tsh ? 3 : 1;
+  return _trimTrailingZeros(value.toStringAsFixed(decimals));
+}
+
+String _formatAxisValue(double value, _ChartMetric metric) {
+  if (metric == _ChartMetric.tsh && value > 0 && value < 1) {
+    return _trimTrailingZeros(value.toStringAsFixed(3));
+  }
+  return _trimTrailingZeros(value.toStringAsFixed(1));
+}
+
+String _trimTrailingZeros(String value) {
+  if (!value.contains('.')) {
+    return value;
+  }
+  return value
+      .replaceFirst(RegExp(r'0+$'), '')
+      .replaceFirst(RegExp(r'\.$'), '');
 }
 
 String _recordsWord(int value) {

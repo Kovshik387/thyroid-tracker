@@ -104,23 +104,23 @@ class LabTrendAnalyzer {
       return LabTrendDirection.insufficient;
     }
 
-    final recent =
-        values.length > 4 ? values.sublist(values.length - 4) : values;
-    final deltas = [
-      for (var i = 1; i < recent.length; i++) recent[i] - recent[i - 1],
-    ];
-    const threshold = 0.05;
-    final meaningful =
-        deltas.where((delta) => delta.abs() >= threshold).toList();
-    if (meaningful.isEmpty) {
+    const alpha = 0.3;
+    var previous = values.first;
+    final smoothed = <double>[previous];
+    for (var i = 1; i < values.length; i++) {
+      final current = alpha * values[i] + (1 - alpha) * previous;
+      smoothed.add(current);
+      previous = current;
+    }
+
+    final delta = smoothed.last - smoothed[smoothed.length - 2];
+    final threshold = (smoothed.last.abs() * 0.02).clamp(0.001, 0.05);
+    if (delta.abs() < threshold) {
       return LabTrendDirection.stable;
     }
-    if (meaningful.every((delta) => delta > 0)) {
+    if (delta > 0) {
       return LabTrendDirection.rising;
     }
-    if (meaningful.every((delta) => delta < 0)) {
-      return LabTrendDirection.falling;
-    }
-    return LabTrendDirection.mixed;
+    return LabTrendDirection.falling;
   }
 }
