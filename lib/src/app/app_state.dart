@@ -52,9 +52,9 @@ class AppState extends ChangeNotifier {
   var _tshMin = 0.4;
   var _tshMax = 4.0;
   var _freeT4Min = 9.0;
-  var _freeT4Max = 22.0;
-  var _freeT3Min = 3.1;
-  var _freeT3Max = 6.8;
+  var _freeT4Max = 19.05;
+  var _freeT3Min = 3.0;
+  var _freeT3Max = 5.6;
   var _demoDataEnabled = false;
   var _demoSleepDataEnabled = false;
   var _demoWeightDataEnabled = false;
@@ -415,9 +415,9 @@ class AppState extends ChangeNotifier {
     _tshMin = 0.4;
     _tshMax = 4.0;
     _freeT4Min = 9.0;
-    _freeT4Max = 22.0;
-    _freeT3Min = 3.1;
-    _freeT3Max = 6.8;
+    _freeT4Max = 19.05;
+    _freeT3Min = 3.0;
+    _freeT3Max = 5.6;
     _demoDataEnabled = false;
     _demoSleepDataEnabled = false;
     _demoWeightDataEnabled = false;
@@ -766,9 +766,9 @@ class AppState extends ChangeNotifier {
     _tshMin = double.tryParse(settings['tshMin'] ?? '') ?? 0.4;
     _tshMax = double.tryParse(settings['tshMax'] ?? '') ?? 4.0;
     _freeT4Min = double.tryParse(settings['freeT4Min'] ?? '') ?? 9.0;
-    _freeT4Max = double.tryParse(settings['freeT4Max'] ?? '') ?? 22.0;
-    _freeT3Min = double.tryParse(settings['freeT3Min'] ?? '') ?? 3.1;
-    _freeT3Max = double.tryParse(settings['freeT3Max'] ?? '') ?? 6.8;
+    _freeT4Max = double.tryParse(settings['freeT4Max'] ?? '') ?? 19.5;
+    _freeT3Min = double.tryParse(settings['freeT3Min'] ?? '') ?? 3.0;
+    _freeT3Max = double.tryParse(settings['freeT3Max'] ?? '') ?? 5.8;
     _demoDataEnabled = settings['demoDataEnabled'] == 'true';
     _demoSleepDataEnabled = settings['demoSleepDataEnabled'] == 'true';
     _demoWeightDataEnabled = settings['demoWeightDataEnabled'] == 'true';
