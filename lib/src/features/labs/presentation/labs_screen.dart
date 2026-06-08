@@ -577,162 +577,179 @@ class _LabsChartCardState extends State<_LabsChartCard> {
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 380;
+                final mediaQuery = MediaQuery.of(context);
+                final prefersBoldText = mediaQuery.boldText;
+                final bottomInterval = chartData.bottomTitleInterval(
+                  maxLabels: compact
+                      ? (prefersBoldText ? 3 : 4)
+                      : (prefersBoldText ? 5 : 6),
+                );
                 return SizedBox(
                   height: compact ? 250 : 300,
-                  child: LineChart(
-                    LineChartData(
-                      minX: chartData.minX,
-                      maxX: chartData.maxX,
-                      minY: chartData.minY,
-                      maxY: chartData.maxY,
-                      gridData: FlGridData(
-                        show: true,
-                        drawVerticalLine: chartData.spots.length > 1,
-                        getDrawingHorizontalLine: (_) => const FlLine(
-                          color: AppColors.border,
-                          strokeWidth: 1,
-                          dashArray: [4, 4],
-                        ),
-                        getDrawingVerticalLine: (_) => const FlLine(
-                          color: AppColors.border,
-                          strokeWidth: 1,
-                          dashArray: [4, 4],
-                        ),
-                      ),
-                      titlesData: FlTitlesData(
-                        topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 36,
-                            getTitlesWidget: (value, meta) {
-                              return Text(
-                                _formatAxisValue(value, _metric),
-                                style: Theme.of(context).textTheme.bodySmall,
-                              );
-                            },
+                  child: MediaQuery(
+                    data: mediaQuery.copyWith(
+                      boldText: false,
+                      textScaler: TextScaler.noScaling,
+                    ),
+                    child: LineChart(
+                      LineChartData(
+                        minX: chartData.minX,
+                        maxX: chartData.maxX,
+                        minY: chartData.minY,
+                        maxY: chartData.maxY,
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: chartData.spots.length > 1,
+                          getDrawingHorizontalLine: (_) => const FlLine(
+                            color: AppColors.border,
+                            strokeWidth: 1,
+                            dashArray: [4, 4],
+                          ),
+                          getDrawingVerticalLine: (_) => const FlLine(
+                            color: AppColors.border,
+                            strokeWidth: 1,
+                            dashArray: [4, 4],
                           ),
                         ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 34,
-                            interval: chartData.xInterval,
-                            getTitlesWidget: (value, meta) {
-                              if (chartData.shouldHideBottomTitle(value)) {
-                                return const SizedBox.shrink();
-                              }
-                              return _BottomDateLabel(
-                                date: chartData.dateForX(value),
-                                isLongRange: chartData.maxX > 120,
-                              );
-                            },
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
                           ),
-                        ),
-                      ),
-                      borderData: FlBorderData(
-                        border: const Border(
-                          left: BorderSide(color: AppColors.borderStrong),
-                          bottom: BorderSide(color: AppColors.borderStrong),
-                        ),
-                      ),
-                      extraLinesData: ExtraLinesData(
-                        horizontalLines: [
-                          HorizontalLine(
-                            y: range.min,
-                            color: AppColors.mint,
-                            strokeWidth: 1.4,
-                            dashArray: [5, 4],
+                          rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
                           ),
-                          HorizontalLine(
-                            y: range.max,
-                            color: AppColors.mint,
-                            strokeWidth: 1.4,
-                            dashArray: [5, 4],
-                          ),
-                        ],
-                      ),
-                      lineTouchData: LineTouchData(
-                        touchTooltipData: LineTouchTooltipData(
-                          tooltipRoundedRadius: 14,
-                          tooltipPadding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm,
-                          ),
-                          tooltipMargin: AppSpacing.sm,
-                          fitInsideHorizontally: true,
-                          fitInsideVertically: true,
-                          getTooltipColor: (_) =>
-                              AppColors.ink.withValues(alpha: 0.88),
-                          getTooltipItems: (items) {
-                            return items.map((item) {
-                              final date = chartData.dateForX(item.x);
-                              final isForecast = item.barIndex == 1;
-                              return LineTooltipItem(
-                                '${isForecast ? 'Прогноз\n' : ''}${_formatMetricValue(item.y, _metric)} ${range.unit}\n${DateFormat('dd.MM.yyyy').format(date)}',
-                                TextStyle(
-                                  color: isForecast
-                                      ? AppColors.amber
-                                      : Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                  height: 1.25,
-                                ),
-                              );
-                            }).toList();
-                          },
-                        ),
-                      ),
-                      lineBarsData: [
-                        LineChartBarData(
-                          spots: chartData.spots,
-                          color: AppColors.azure,
-                          barWidth: 2.8,
-                          isCurved: true,
-                          curveSmoothness: 0.18,
-                          preventCurveOverShooting: true,
-                          belowBarData: BarAreaData(
-                            show: true,
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                AppColors.azure.withValues(alpha: 0.24),
-                                AppColors.azure.withValues(alpha: 0.04),
-                              ],
-                            ),
-                          ),
-                          dotData: FlDotData(
-                            show: chartData.spots.length <= 36,
-                          ),
-                        ),
-                        if (chartData.forecastSpots.isNotEmpty)
-                          LineChartBarData(
-                            spots: chartData.forecastSpots,
-                            color: AppColors.amber,
-                            barWidth: 2.5,
-                            isCurved: true,
-                            curveSmoothness: 0.12,
-                            preventCurveOverShooting: true,
-                            dashArray: [6, 5],
-                            dotData: FlDotData(
-                              show: true,
-                              getDotPainter: (spot, percent, barData, index) {
-                                return FlDotCirclePainter(
-                                  radius: index == 0 ? 0 : 4,
-                                  color: AppColors.amber,
-                                  strokeWidth: 2,
-                                  strokeColor: AppColors.surface,
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 36,
+                              getTitlesWidget: (value, meta) {
+                                return Text(
+                                  _formatAxisValue(value, _metric),
+                                  style: Theme.of(context).textTheme.bodySmall,
                                 );
                               },
                             ),
                           ),
-                      ],
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: compact ? 42 : 36,
+                              interval: bottomInterval,
+                              getTitlesWidget: (value, meta) {
+                                if (chartData.shouldHideBottomTitle(
+                                  value,
+                                  interval: bottomInterval,
+                                )) {
+                                  return const SizedBox.shrink();
+                                }
+                                return _BottomDateLabel(
+                                  date: chartData.dateForX(value),
+                                  compact: compact,
+                                  isLongRange: chartData.maxX > 120,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        borderData: FlBorderData(
+                          border: const Border(
+                            left: BorderSide(color: AppColors.borderStrong),
+                            bottom: BorderSide(color: AppColors.borderStrong),
+                          ),
+                        ),
+                        extraLinesData: ExtraLinesData(
+                          horizontalLines: [
+                            HorizontalLine(
+                              y: range.min,
+                              color: AppColors.mint,
+                              strokeWidth: 1.4,
+                              dashArray: [5, 4],
+                            ),
+                            HorizontalLine(
+                              y: range.max,
+                              color: AppColors.mint,
+                              strokeWidth: 1.4,
+                              dashArray: [5, 4],
+                            ),
+                          ],
+                        ),
+                        lineTouchData: LineTouchData(
+                          touchTooltipData: LineTouchTooltipData(
+                            tooltipRoundedRadius: 14,
+                            tooltipPadding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: AppSpacing.sm,
+                            ),
+                            tooltipMargin: AppSpacing.sm,
+                            fitInsideHorizontally: true,
+                            fitInsideVertically: true,
+                            getTooltipColor: (_) =>
+                                AppColors.ink.withValues(alpha: 0.88),
+                            getTooltipItems: (items) {
+                              return items.map((item) {
+                                final date = chartData.dateForX(item.x);
+                                final isForecast = item.barIndex == 1;
+                                return LineTooltipItem(
+                                  '${isForecast ? 'Прогноз\n' : ''}${_formatMetricValue(item.y, _metric)} ${range.unit}\n${DateFormat('dd.MM.yyyy').format(date)}',
+                                  TextStyle(
+                                    color: isForecast
+                                        ? AppColors.amber
+                                        : Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                    height: 1.25,
+                                  ),
+                                );
+                              }).toList();
+                            },
+                          ),
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: chartData.spots,
+                            color: AppColors.azure,
+                            barWidth: 2.8,
+                            isCurved: true,
+                            curveSmoothness: 0.18,
+                            preventCurveOverShooting: true,
+                            belowBarData: BarAreaData(
+                              show: true,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  AppColors.azure.withValues(alpha: 0.24),
+                                  AppColors.azure.withValues(alpha: 0.04),
+                                ],
+                              ),
+                            ),
+                            dotData: FlDotData(
+                              show: chartData.spots.length <= 36,
+                            ),
+                          ),
+                          if (chartData.forecastSpots.isNotEmpty)
+                            LineChartBarData(
+                              spots: chartData.forecastSpots,
+                              color: AppColors.amber,
+                              barWidth: 2.5,
+                              isCurved: true,
+                              curveSmoothness: 0.12,
+                              preventCurveOverShooting: true,
+                              dashArray: [6, 5],
+                              dotData: FlDotData(
+                                show: true,
+                                getDotPainter: (spot, percent, barData, index) {
+                                  return FlDotCirclePainter(
+                                    radius: index == 0 ? 0 : 4,
+                                    color: AppColors.amber,
+                                    strokeWidth: 2,
+                                    strokeColor: AppColors.surface,
+                                  );
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -902,21 +919,31 @@ class _SingleMetricChartData {
     return startDate.add(Duration(days: x.round()));
   }
 
-  bool shouldHideBottomTitle(double value) {
-    if (value <= minX || value >= maxX) {
+  double bottomTitleInterval({required int maxLabels}) {
+    return _intervalFor(maxX, maxLabels: maxLabels);
+  }
+
+  bool shouldHideBottomTitle(
+    double value, {
+    required double interval,
+  }) {
+    const edgeTolerance = 0.001;
+    if (value <= minX + edgeTolerance || value >= maxX - edgeTolerance) {
       return false;
     }
-    return maxX - value < xInterval * 0.72;
+    return value - minX < interval * 0.45 || maxX - value < interval * 0.72;
   }
 }
 
 class _BottomDateLabel extends StatelessWidget {
   const _BottomDateLabel({
     required this.date,
+    required this.compact,
     required this.isLongRange,
   });
 
   final DateTime date;
+  final bool compact;
   final bool isLongRange;
 
   @override
@@ -924,12 +951,17 @@ class _BottomDateLabel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.xs),
       child: SizedBox(
-        width: 48,
+        width: compact ? 42 : 52,
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
             DateFormat(isLongRange ? 'MM.yy' : 'dd.MM').format(date),
-            style: Theme.of(context).textTheme.bodySmall,
+            maxLines: 1,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.muted,
+                  fontSize: compact ? 10 : 11,
+                  fontWeight: FontWeight.w700,
+                ),
           ),
         ),
       ),
@@ -999,23 +1031,30 @@ LabForecastResult _forecastSpots(
   );
 }
 
-double _intervalFor(double maxX) {
-  if (maxX <= 10) {
-    return 1;
+double _intervalFor(double maxX, {int maxLabels = 6}) {
+  final labels = maxLabels.clamp(2, 8);
+  final target = maxX <= 0 ? 1 : maxX / (labels - 1);
+  const candidates = <double>[
+    1,
+    2,
+    3,
+    7,
+    14,
+    21,
+    30,
+    45,
+    60,
+    90,
+    120,
+    180,
+    365,
+  ];
+  for (final candidate in candidates) {
+    if (candidate >= target) {
+      return candidate;
+    }
   }
-  if (maxX <= 45) {
-    return 7;
-  }
-  if (maxX <= 120) {
-    return 14;
-  }
-  if (maxX <= 240) {
-    return 60;
-  }
-  if (maxX <= 540) {
-    return 120;
-  }
-  return 180;
+  return candidates.last;
 }
 
 DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
