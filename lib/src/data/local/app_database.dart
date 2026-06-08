@@ -46,6 +46,12 @@ class MedicationPlanEntries extends Table {
 
   DateTimeColumn get intakeTime => dateTime()();
 
+  RealColumn get doseMcg => real().nullable()();
+
+  DateTimeColumn get startedAt => dateTime().nullable()();
+
+  DateTimeColumn get endedAt => dateTime().nullable()();
+
   TextColumn get note => text().nullable()();
 
   @override
@@ -181,7 +187,7 @@ class AppDatabase extends _$AppDatabase {
         );
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -218,6 +224,14 @@ class AppDatabase extends _$AppDatabase {
               medicationIntakeEntries,
               medicationIntakeEntries.countsForStreak,
             );
+          }
+          if (from < 10) {
+            await _addColumnIfMissing(
+                m, medicationPlanEntries, medicationPlanEntries.doseMcg);
+            await _addColumnIfMissing(
+                m, medicationPlanEntries, medicationPlanEntries.startedAt);
+            await _addColumnIfMissing(
+                m, medicationPlanEntries, medicationPlanEntries.endedAt);
           }
         },
       );
@@ -355,6 +369,22 @@ class AppDatabase extends _$AppDatabase {
     return (delete(medicationIntakeEntries)
           ..where((row) => row.id.like('$prefix%')))
         .go();
+  }
+
+  Future<void> deleteMedicationPlansByIdPrefix(String prefix) {
+    return transaction(() async {
+      final plans = await (select(medicationPlanEntries)
+            ..where((row) => row.id.like('$prefix%')))
+          .get();
+      for (final plan in plans) {
+        await (delete(medicationIntakeEntries)
+              ..where((row) => row.planId.equals(plan.id)))
+            .go();
+      }
+      await (delete(medicationPlanEntries)
+            ..where((row) => row.id.like('$prefix%')))
+          .go();
+    });
   }
 
   Future<void> resetAll() {

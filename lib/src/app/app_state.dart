@@ -222,6 +222,8 @@ class AppState extends ChangeNotifier {
         name: medicationName,
         dosage: dosage,
         intakeTime: intakeTime,
+        doseMcg: Value(_parseDoseMcg(dosage)),
+        startedAt: Value(DateTime.now()),
       ),
     );
     await _database.saveSetting('onboardingCompleted', 'true');
@@ -338,6 +340,9 @@ class AppState extends ChangeNotifier {
     required String name,
     required String dosage,
     required DateTime intakeTime,
+    double? doseMcg,
+    DateTime? startedAt,
+    DateTime? endedAt,
     String? note,
   }) async {
     await _database.saveMedicationPlan(
@@ -346,7 +351,90 @@ class AppState extends ChangeNotifier {
         name: name,
         dosage: dosage,
         intakeTime: intakeTime,
+        doseMcg: Value(doseMcg ?? _parseDoseMcg(dosage)),
+        startedAt: Value(startedAt),
+        endedAt: Value(endedAt),
         note: Value(note),
+      ),
+    );
+    await _load();
+  }
+
+  Future<void> updateMedicationPlan({
+    required String id,
+    required String name,
+    required String dosage,
+    required DateTime intakeTime,
+    double? doseMcg,
+    DateTime? startedAt,
+    DateTime? endedAt,
+    String? note,
+  }) async {
+    await _database.saveMedicationPlan(
+      MedicationPlanEntriesCompanion.insert(
+        id: id,
+        name: name,
+        dosage: dosage,
+        intakeTime: intakeTime,
+        doseMcg: Value(doseMcg ?? _parseDoseMcg(dosage)),
+        startedAt: Value(startedAt),
+        endedAt: Value(endedAt),
+        note: Value(note),
+      ),
+    );
+    await _load();
+  }
+
+  Future<void> changeMedicationDose({
+    required MedicationPlan plan,
+    required double doseMcg,
+    required DateTime startedAt,
+  }) async {
+    final start = _dateOnly(startedAt);
+    final currentStart =
+        plan.startedAt == null ? null : _dateOnly(plan.startedAt!);
+    final dosage = '${_formatDemoDose(doseMcg)} мкг';
+
+    if (currentStart != null && currentStart == start) {
+      await updateMedicationPlan(
+        id: plan.id,
+        name: plan.name,
+        dosage: dosage,
+        intakeTime: plan.intakeTime,
+        doseMcg: doseMcg,
+        startedAt: plan.startedAt,
+        endedAt: plan.endedAt,
+        note: plan.note,
+      );
+      return;
+    }
+
+    final previousEnd = start.subtract(const Duration(days: 1));
+    if (plan.endedAt == null || !plan.endedAt!.isBefore(start)) {
+      await _database.saveMedicationPlan(
+        MedicationPlanEntriesCompanion.insert(
+          id: plan.id,
+          name: plan.name,
+          dosage: plan.dosage,
+          intakeTime: plan.intakeTime,
+          doseMcg: Value(plan.doseMcg ?? _parseDoseMcg(plan.dosage)),
+          startedAt: Value(plan.startedAt),
+          endedAt: Value(previousEnd),
+          note: Value(plan.note),
+        ),
+      );
+    }
+
+    await _database.saveMedicationPlan(
+      MedicationPlanEntriesCompanion.insert(
+        id: 'med-${DateTime.now().microsecondsSinceEpoch}',
+        name: plan.name,
+        dosage: dosage,
+        intakeTime: plan.intakeTime,
+        doseMcg: Value(doseMcg),
+        startedAt: Value(start),
+        endedAt: const Value.absent(),
+        note: Value(plan.note),
       ),
     );
     await _load();
@@ -369,6 +457,9 @@ class AppState extends ChangeNotifier {
         name: medication.name,
         dosage: medication.dosage,
         intakeTime: intakeTime,
+        doseMcg: Value(medication.doseMcg),
+        startedAt: Value(medication.startedAt),
+        endedAt: Value(medication.endedAt),
         note: Value(medication.note),
       ),
     );
@@ -530,6 +621,7 @@ class AppState extends ChangeNotifier {
       await _seedDemoMedicationIntakes();
     } else {
       await _database.deleteMedicationIntakesByIdPrefix('demo-intake-');
+      await _database.deleteMedicationPlansByIdPrefix('demo-med-');
     }
     await _load();
   }
@@ -990,20 +1082,56 @@ class AppState extends ChangeNotifier {
 
   Future<void> _seedDemoMedicationIntakes() async {
     await _database.deleteMedicationIntakesByIdPrefix('demo-intake-');
+    await _database.deleteMedicationPlansByIdPrefix('demo-med-');
 
-    final plans = await _database.getMedicationPlans();
-    if (plans.isEmpty) {
-      return;
-    }
-
-    final plan = plans.first;
     final today = _dateOnly(DateTime.now());
     const totalDays = 180;
+    final start = today.subtract(const Duration(days: totalDays));
+    final courses = [
+      (
+        id: 'demo-med-50',
+        dose: 50.0,
+        from: start,
+        to: start.add(const Duration(days: 59)),
+      ),
+      (
+        id: 'demo-med-75',
+        dose: 75.0,
+        from: start.add(const Duration(days: 60)),
+        to: start.add(const Duration(days: 124)),
+      ),
+      (
+        id: 'demo-med-88',
+        dose: 88.0,
+        from: start.add(const Duration(days: 125)),
+        to: null as DateTime?,
+      ),
+    ];
+    for (final course in courses) {
+      await _database.saveMedicationPlan(
+        MedicationPlanEntriesCompanion.insert(
+          id: course.id,
+          name: 'Эутирокс',
+          dosage: '${_formatDemoDose(course.dose)} мкг',
+          doseMcg: Value(course.dose),
+          intakeTime: DateTime(today.year, today.month, today.day, 8),
+          startedAt: Value(course.from),
+          endedAt: Value(course.to),
+          note: const Value('Демо-курс для проверки прогноза'),
+        ),
+      );
+    }
+
     for (var day = totalDays, index = 0; day >= 0; day--, index++) {
       if (index % 13 == 0 || index % 29 == 0) {
         continue;
       }
       final date = today.subtract(Duration(days: day));
+      final course = courses.lastWhere(
+        (course) =>
+            !date.isBefore(course.from) &&
+            (course.to == null || !date.isAfter(course.to!)),
+      );
       final routineDrift = index < 55 ? 28 : (index < 120 ? 12 : 4);
       final waveOffset = (((index * 19) % 61) - 30);
       final occasionalDelay = index % 17 == 0 ? 45 : 0;
@@ -1014,14 +1142,14 @@ class AppState extends ChangeNotifier {
         date.year,
         date.month,
         date.day,
-        plan.intakeTime.hour,
-        plan.intakeTime.minute,
+        8,
+        0,
       ).add(Duration(minutes: offsetMinutes));
 
       await _database.saveMedicationIntake(
         MedicationIntakeEntriesCompanion.insert(
           id: 'demo-intake-$index',
-          planId: plan.id,
+          planId: course.id,
           date: date,
           takenAt: Value(takenAt),
           taken: true,
@@ -1038,6 +1166,10 @@ double _demoWave(int index, double speed) {
 }
 
 double _roundDemo(num value) => (value * 10).roundToDouble() / 10;
+
+String _formatDemoDose(double value) {
+  return value.toStringAsFixed(value.truncateToDouble() == value ? 0 : 1);
+}
 
 UserProfile _userProfileFromRow(UserProfileEntry row) {
   return UserProfile(
@@ -1102,8 +1234,20 @@ MedicationPlan _medicationPlanFromRow(MedicationPlanEntry row) {
     name: row.name,
     dosage: row.dosage,
     intakeTime: row.intakeTime,
+    doseMcg: row.doseMcg,
+    startedAt: row.startedAt,
+    endedAt: row.endedAt,
     note: row.note,
   );
+}
+
+double? _parseDoseMcg(String value) {
+  final normalized = value.replaceAll(',', '.');
+  final match = RegExp(r'(\d+(?:\.\d+)?)').firstMatch(normalized);
+  if (match == null) {
+    return null;
+  }
+  return double.tryParse(match.group(1)!);
 }
 
 DoctorVisit _doctorVisitFromRow(DoctorVisitEntry row) {

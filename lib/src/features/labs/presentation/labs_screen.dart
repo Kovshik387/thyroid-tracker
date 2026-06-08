@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 import '../../../app/app_scope.dart';
 import '../../../app/design_tokens.dart';
 import '../../../core/domain/reference_range.dart';
+import '../../medication/domain/medication_plan.dart';
 import '../domain/lab_evaluator.dart';
+import '../domain/lab_forecast.dart';
 import '../domain/lab_result.dart';
 import '../domain/lab_trend_analyzer.dart';
 import '../../../shared/presentation/adaptive_picker.dart';
@@ -56,6 +58,7 @@ class _LabsScreenState extends State<LabsScreen> {
           tshRange: appState.tshRange,
           freeT4Range: appState.freeT4Range,
           freeT3Range: appState.freeT3Range,
+          medicationPlans: appState.medicationPlans,
         ),
         const SizedBox(height: AppSpacing.lg),
         _TrendCard(trend: const LabTrendAnalyzer().analyze(filteredLabs)),
@@ -497,6 +500,7 @@ class _LabsChartCard extends StatefulWidget {
     required this.tshRange,
     required this.freeT4Range,
     required this.freeT3Range,
+    required this.medicationPlans,
   });
 
   final List<LabResult> results;
@@ -504,6 +508,7 @@ class _LabsChartCard extends StatefulWidget {
   final ReferenceRange tshRange;
   final ReferenceRange freeT4Range;
   final ReferenceRange freeT3Range;
+  final List<MedicationPlan> medicationPlans;
 
   @override
   State<_LabsChartCard> createState() => _LabsChartCardState();
@@ -535,6 +540,7 @@ class _LabsChartCardState extends State<_LabsChartCard> {
       chartResults,
       metric: _metric,
       range: range,
+      medicationPlans: widget.medicationPlans,
     );
 
     return AppCard(
@@ -746,11 +752,20 @@ class _LabsChartCardState extends State<_LabsChartCard> {
           if (chartData.forecastSpots.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Прогноз рассчитан методом экспоненциального сглаживания: alpha = 0.3, тенденция ослаблена коэффициентом 0.5. Это ориентировочная оценка, а не медицинское назначение.',
+              chartData.forecastNote,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.muted,
                   ),
             ),
+            if (chartData.medicationNote != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                chartData.medicationNote!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.muted,
+                    ),
+              ),
+            ],
           ],
           const SizedBox(height: AppSpacing.sm),
           Text(
@@ -785,6 +800,8 @@ class _SingleMetricChartData {
     required this.xInterval,
     required this.spots,
     required this.forecastSpots,
+    required this.forecastNote,
+    this.medicationNote,
   });
 
   final DateTime startDate;
@@ -795,11 +812,14 @@ class _SingleMetricChartData {
   final double xInterval;
   final List<FlSpot> spots;
   final List<FlSpot> forecastSpots;
+  final String forecastNote;
+  final String? medicationNote;
 
   factory _SingleMetricChartData.fromResults(
     List<LabResult> results, {
     required _ChartMetric metric,
     required ReferenceRange range,
+    required List<MedicationPlan> medicationPlans,
   }) {
     final start = _dateOnly(results.first.date);
     final valuesByDay = <double, List<double>>{};
@@ -834,10 +854,18 @@ class _SingleMetricChartData {
         xInterval: 1,
         spots: const [],
         forecastSpots: const [],
+        forecastNote: '',
       );
     }
 
-    final forecastSpots = _forecastSpots(rawSpots);
+    final forecast = _forecastSpots(
+      rawSpots,
+      metric: metric,
+      medicationPlans: medicationPlans,
+      startDate: start,
+    );
+    final forecastSpots =
+        forecast.points.map((point) => FlSpot(point.day, point.value)).toList();
     final values = [
       range.min,
       range.max,
@@ -865,6 +893,8 @@ class _SingleMetricChartData {
       xInterval: _intervalFor(maxX),
       spots: _sampleSpots(rawSpots, maxPoints: 48),
       forecastSpots: forecastSpots,
+      forecastNote: forecast.methodNote,
+      medicationNote: forecast.medicationNote,
     );
   }
 
@@ -949,55 +979,24 @@ List<FlSpot> _sampleSpots(List<FlSpot> source, {required int maxPoints}) {
   return sampled;
 }
 
-List<FlSpot> _forecastSpots(List<FlSpot> source) {
-  if (source.length < 3) {
-    return const [];
-  }
-
-  const alpha = 0.3;
-  const tendencyDamping = 0.5;
-
-  final smoothed = <double>[source.first.y];
-  for (var i = 1; i < source.length; i++) {
-    final current = source[i].y;
-    final previousSmooth = smoothed.last;
-    smoothed.add(alpha * current + (1 - alpha) * previousSmooth);
-  }
-
-  final lastSmoothed = smoothed.last;
-  final previousSmoothed = smoothed[smoothed.length - 2];
-  final delta = lastSmoothed - previousSmoothed;
-  final forecastY =
-      (lastSmoothed + tendencyDamping * delta).clamp(0.0, double.infinity);
-  if (forecastY.isNaN || forecastY.isInfinite) {
-    return const [];
-  }
-
-  final nextX = source.last.x + _nextForecastStep(source);
-  if (nextX <= source.last.x) {
-    return const [];
-  }
-
-  return [
-    FlSpot(source.last.x, lastSmoothed),
-    FlSpot(nextX, forecastY),
-  ];
-}
-
-double _nextForecastStep(List<FlSpot> source) {
-  final gaps = <double>[];
-  for (var i = 1; i < source.length; i++) {
-    final gap = source[i].x - source[i - 1].x;
-    if (gap > 0) {
-      gaps.add(gap);
-    }
-  }
-  if (gaps.isEmpty) {
-    return 30;
-  }
-  final averageGap =
-      gaps.fold<double>(0, (sum, gap) => sum + gap) / gaps.length;
-  return averageGap.clamp(7.0, 180.0);
+LabForecastResult _forecastSpots(
+  List<FlSpot> source, {
+  required _ChartMetric metric,
+  required List<MedicationPlan> medicationPlans,
+  required DateTime startDate,
+}) {
+  return const LabForecastEngine().predict(
+    source
+        .map((spot) => LabForecastSample(day: spot.x, value: spot.y))
+        .toList(),
+    metric: switch (metric) {
+      _ChartMetric.tsh => LabForecastMetric.tsh,
+      _ChartMetric.freeT4 => LabForecastMetric.freeT4,
+      _ChartMetric.freeT3 => LabForecastMetric.freeT3,
+    },
+    medicationPlans: medicationPlans,
+    startDate: startDate,
+  );
 }
 
 double _intervalFor(double maxX) {

@@ -743,13 +743,32 @@ class $MedicationPlanEntriesTable extends MedicationPlanEntries
   late final GeneratedColumn<DateTime> intakeTime = GeneratedColumn<DateTime>(
       'intake_time', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _doseMcgMeta =
+      const VerificationMeta('doseMcg');
+  @override
+  late final GeneratedColumn<double> doseMcg = GeneratedColumn<double>(
+      'dose_mcg', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _startedAtMeta =
+      const VerificationMeta('startedAt');
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+      'started_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _endedAtMeta =
+      const VerificationMeta('endedAt');
+  @override
+  late final GeneratedColumn<DateTime> endedAt = GeneratedColumn<DateTime>(
+      'ended_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _noteMeta = const VerificationMeta('note');
   @override
   late final GeneratedColumn<String> note = GeneratedColumn<String>(
       'note', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
   @override
-  List<GeneratedColumn> get $columns => [id, name, dosage, intakeTime, note];
+  List<GeneratedColumn> get $columns =>
+      [id, name, dosage, intakeTime, doseMcg, startedAt, endedAt, note];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -786,6 +805,18 @@ class $MedicationPlanEntriesTable extends MedicationPlanEntries
     } else if (isInserting) {
       context.missing(_intakeTimeMeta);
     }
+    if (data.containsKey('dose_mcg')) {
+      context.handle(_doseMcgMeta,
+          doseMcg.isAcceptableOrUnknown(data['dose_mcg']!, _doseMcgMeta));
+    }
+    if (data.containsKey('started_at')) {
+      context.handle(_startedAtMeta,
+          startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta));
+    }
+    if (data.containsKey('ended_at')) {
+      context.handle(_endedAtMeta,
+          endedAt.isAcceptableOrUnknown(data['ended_at']!, _endedAtMeta));
+    }
     if (data.containsKey('note')) {
       context.handle(
           _noteMeta, note.isAcceptableOrUnknown(data['note']!, _noteMeta));
@@ -807,6 +838,12 @@ class $MedicationPlanEntriesTable extends MedicationPlanEntries
           .read(DriftSqlType.string, data['${effectivePrefix}dosage'])!,
       intakeTime: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}intake_time'])!,
+      doseMcg: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}dose_mcg']),
+      startedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}started_at']),
+      endedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}ended_at']),
       note: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}note']),
     );
@@ -824,12 +861,18 @@ class MedicationPlanEntry extends DataClass
   final String name;
   final String dosage;
   final DateTime intakeTime;
+  final double? doseMcg;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
   final String? note;
   const MedicationPlanEntry(
       {required this.id,
       required this.name,
       required this.dosage,
       required this.intakeTime,
+      this.doseMcg,
+      this.startedAt,
+      this.endedAt,
       this.note});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -838,6 +881,15 @@ class MedicationPlanEntry extends DataClass
     map['name'] = Variable<String>(name);
     map['dosage'] = Variable<String>(dosage);
     map['intake_time'] = Variable<DateTime>(intakeTime);
+    if (!nullToAbsent || doseMcg != null) {
+      map['dose_mcg'] = Variable<double>(doseMcg);
+    }
+    if (!nullToAbsent || startedAt != null) {
+      map['started_at'] = Variable<DateTime>(startedAt);
+    }
+    if (!nullToAbsent || endedAt != null) {
+      map['ended_at'] = Variable<DateTime>(endedAt);
+    }
     if (!nullToAbsent || note != null) {
       map['note'] = Variable<String>(note);
     }
@@ -850,6 +902,15 @@ class MedicationPlanEntry extends DataClass
       name: Value(name),
       dosage: Value(dosage),
       intakeTime: Value(intakeTime),
+      doseMcg: doseMcg == null && nullToAbsent
+          ? const Value.absent()
+          : Value(doseMcg),
+      startedAt: startedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startedAt),
+      endedAt: endedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endedAt),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
     );
   }
@@ -862,6 +923,9 @@ class MedicationPlanEntry extends DataClass
       name: serializer.fromJson<String>(json['name']),
       dosage: serializer.fromJson<String>(json['dosage']),
       intakeTime: serializer.fromJson<DateTime>(json['intakeTime']),
+      doseMcg: serializer.fromJson<double?>(json['doseMcg']),
+      startedAt: serializer.fromJson<DateTime?>(json['startedAt']),
+      endedAt: serializer.fromJson<DateTime?>(json['endedAt']),
       note: serializer.fromJson<String?>(json['note']),
     );
   }
@@ -873,6 +937,9 @@ class MedicationPlanEntry extends DataClass
       'name': serializer.toJson<String>(name),
       'dosage': serializer.toJson<String>(dosage),
       'intakeTime': serializer.toJson<DateTime>(intakeTime),
+      'doseMcg': serializer.toJson<double?>(doseMcg),
+      'startedAt': serializer.toJson<DateTime?>(startedAt),
+      'endedAt': serializer.toJson<DateTime?>(endedAt),
       'note': serializer.toJson<String?>(note),
     };
   }
@@ -882,12 +949,18 @@ class MedicationPlanEntry extends DataClass
           String? name,
           String? dosage,
           DateTime? intakeTime,
+          Value<double?> doseMcg = const Value.absent(),
+          Value<DateTime?> startedAt = const Value.absent(),
+          Value<DateTime?> endedAt = const Value.absent(),
           Value<String?> note = const Value.absent()}) =>
       MedicationPlanEntry(
         id: id ?? this.id,
         name: name ?? this.name,
         dosage: dosage ?? this.dosage,
         intakeTime: intakeTime ?? this.intakeTime,
+        doseMcg: doseMcg.present ? doseMcg.value : this.doseMcg,
+        startedAt: startedAt.present ? startedAt.value : this.startedAt,
+        endedAt: endedAt.present ? endedAt.value : this.endedAt,
         note: note.present ? note.value : this.note,
       );
   MedicationPlanEntry copyWithCompanion(MedicationPlanEntriesCompanion data) {
@@ -897,6 +970,9 @@ class MedicationPlanEntry extends DataClass
       dosage: data.dosage.present ? data.dosage.value : this.dosage,
       intakeTime:
           data.intakeTime.present ? data.intakeTime.value : this.intakeTime,
+      doseMcg: data.doseMcg.present ? data.doseMcg.value : this.doseMcg,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
+      endedAt: data.endedAt.present ? data.endedAt.value : this.endedAt,
       note: data.note.present ? data.note.value : this.note,
     );
   }
@@ -908,13 +984,17 @@ class MedicationPlanEntry extends DataClass
           ..write('name: $name, ')
           ..write('dosage: $dosage, ')
           ..write('intakeTime: $intakeTime, ')
+          ..write('doseMcg: $doseMcg, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('endedAt: $endedAt, ')
           ..write('note: $note')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, dosage, intakeTime, note);
+  int get hashCode => Object.hash(
+      id, name, dosage, intakeTime, doseMcg, startedAt, endedAt, note);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -923,6 +1003,9 @@ class MedicationPlanEntry extends DataClass
           other.name == this.name &&
           other.dosage == this.dosage &&
           other.intakeTime == this.intakeTime &&
+          other.doseMcg == this.doseMcg &&
+          other.startedAt == this.startedAt &&
+          other.endedAt == this.endedAt &&
           other.note == this.note);
 }
 
@@ -932,6 +1015,9 @@ class MedicationPlanEntriesCompanion
   final Value<String> name;
   final Value<String> dosage;
   final Value<DateTime> intakeTime;
+  final Value<double?> doseMcg;
+  final Value<DateTime?> startedAt;
+  final Value<DateTime?> endedAt;
   final Value<String?> note;
   final Value<int> rowid;
   const MedicationPlanEntriesCompanion({
@@ -939,6 +1025,9 @@ class MedicationPlanEntriesCompanion
     this.name = const Value.absent(),
     this.dosage = const Value.absent(),
     this.intakeTime = const Value.absent(),
+    this.doseMcg = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.endedAt = const Value.absent(),
     this.note = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -947,6 +1036,9 @@ class MedicationPlanEntriesCompanion
     required String name,
     required String dosage,
     required DateTime intakeTime,
+    this.doseMcg = const Value.absent(),
+    this.startedAt = const Value.absent(),
+    this.endedAt = const Value.absent(),
     this.note = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
@@ -958,6 +1050,9 @@ class MedicationPlanEntriesCompanion
     Expression<String>? name,
     Expression<String>? dosage,
     Expression<DateTime>? intakeTime,
+    Expression<double>? doseMcg,
+    Expression<DateTime>? startedAt,
+    Expression<DateTime>? endedAt,
     Expression<String>? note,
     Expression<int>? rowid,
   }) {
@@ -966,6 +1061,9 @@ class MedicationPlanEntriesCompanion
       if (name != null) 'name': name,
       if (dosage != null) 'dosage': dosage,
       if (intakeTime != null) 'intake_time': intakeTime,
+      if (doseMcg != null) 'dose_mcg': doseMcg,
+      if (startedAt != null) 'started_at': startedAt,
+      if (endedAt != null) 'ended_at': endedAt,
       if (note != null) 'note': note,
       if (rowid != null) 'rowid': rowid,
     });
@@ -976,6 +1074,9 @@ class MedicationPlanEntriesCompanion
       Value<String>? name,
       Value<String>? dosage,
       Value<DateTime>? intakeTime,
+      Value<double?>? doseMcg,
+      Value<DateTime?>? startedAt,
+      Value<DateTime?>? endedAt,
       Value<String?>? note,
       Value<int>? rowid}) {
     return MedicationPlanEntriesCompanion(
@@ -983,6 +1084,9 @@ class MedicationPlanEntriesCompanion
       name: name ?? this.name,
       dosage: dosage ?? this.dosage,
       intakeTime: intakeTime ?? this.intakeTime,
+      doseMcg: doseMcg ?? this.doseMcg,
+      startedAt: startedAt ?? this.startedAt,
+      endedAt: endedAt ?? this.endedAt,
       note: note ?? this.note,
       rowid: rowid ?? this.rowid,
     );
@@ -1003,6 +1107,15 @@ class MedicationPlanEntriesCompanion
     if (intakeTime.present) {
       map['intake_time'] = Variable<DateTime>(intakeTime.value);
     }
+    if (doseMcg.present) {
+      map['dose_mcg'] = Variable<double>(doseMcg.value);
+    }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
+    if (endedAt.present) {
+      map['ended_at'] = Variable<DateTime>(endedAt.value);
+    }
     if (note.present) {
       map['note'] = Variable<String>(note.value);
     }
@@ -1019,6 +1132,9 @@ class MedicationPlanEntriesCompanion
           ..write('name: $name, ')
           ..write('dosage: $dosage, ')
           ..write('intakeTime: $intakeTime, ')
+          ..write('doseMcg: $doseMcg, ')
+          ..write('startedAt: $startedAt, ')
+          ..write('endedAt: $endedAt, ')
           ..write('note: $note, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -3520,6 +3636,9 @@ typedef $$MedicationPlanEntriesTableCreateCompanionBuilder
   required String name,
   required String dosage,
   required DateTime intakeTime,
+  Value<double?> doseMcg,
+  Value<DateTime?> startedAt,
+  Value<DateTime?> endedAt,
   Value<String?> note,
   Value<int> rowid,
 });
@@ -3529,6 +3648,9 @@ typedef $$MedicationPlanEntriesTableUpdateCompanionBuilder
   Value<String> name,
   Value<String> dosage,
   Value<DateTime> intakeTime,
+  Value<double?> doseMcg,
+  Value<DateTime?> startedAt,
+  Value<DateTime?> endedAt,
   Value<String?> note,
   Value<int> rowid,
 });
@@ -3553,6 +3675,15 @@ class $$MedicationPlanEntriesTableFilterComposer
 
   ColumnFilters<DateTime> get intakeTime => $composableBuilder(
       column: $table.intakeTime, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get doseMcg => $composableBuilder(
+      column: $table.doseMcg, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+      column: $table.startedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get endedAt => $composableBuilder(
+      column: $table.endedAt, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get note => $composableBuilder(
       column: $table.note, builder: (column) => ColumnFilters(column));
@@ -3579,6 +3710,15 @@ class $$MedicationPlanEntriesTableOrderingComposer
   ColumnOrderings<DateTime> get intakeTime => $composableBuilder(
       column: $table.intakeTime, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<double> get doseMcg => $composableBuilder(
+      column: $table.doseMcg, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+      column: $table.startedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get endedAt => $composableBuilder(
+      column: $table.endedAt, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get note => $composableBuilder(
       column: $table.note, builder: (column) => ColumnOrderings(column));
 }
@@ -3603,6 +3743,15 @@ class $$MedicationPlanEntriesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get intakeTime => $composableBuilder(
       column: $table.intakeTime, builder: (column) => column);
+
+  GeneratedColumn<double> get doseMcg =>
+      $composableBuilder(column: $table.doseMcg, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endedAt =>
+      $composableBuilder(column: $table.endedAt, builder: (column) => column);
 
   GeneratedColumn<String> get note =>
       $composableBuilder(column: $table.note, builder: (column) => column);
@@ -3643,6 +3792,9 @@ class $$MedicationPlanEntriesTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             Value<String> dosage = const Value.absent(),
             Value<DateTime> intakeTime = const Value.absent(),
+            Value<double?> doseMcg = const Value.absent(),
+            Value<DateTime?> startedAt = const Value.absent(),
+            Value<DateTime?> endedAt = const Value.absent(),
             Value<String?> note = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -3651,6 +3803,9 @@ class $$MedicationPlanEntriesTableTableManager extends RootTableManager<
             name: name,
             dosage: dosage,
             intakeTime: intakeTime,
+            doseMcg: doseMcg,
+            startedAt: startedAt,
+            endedAt: endedAt,
             note: note,
             rowid: rowid,
           ),
@@ -3659,6 +3814,9 @@ class $$MedicationPlanEntriesTableTableManager extends RootTableManager<
             required String name,
             required String dosage,
             required DateTime intakeTime,
+            Value<double?> doseMcg = const Value.absent(),
+            Value<DateTime?> startedAt = const Value.absent(),
+            Value<DateTime?> endedAt = const Value.absent(),
             Value<String?> note = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -3667,6 +3825,9 @@ class $$MedicationPlanEntriesTableTableManager extends RootTableManager<
             name: name,
             dosage: dosage,
             intakeTime: intakeTime,
+            doseMcg: doseMcg,
+            startedAt: startedAt,
+            endedAt: endedAt,
             note: note,
             rowid: rowid,
           ),
