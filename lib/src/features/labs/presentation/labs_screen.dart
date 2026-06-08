@@ -687,6 +687,9 @@ class _LabsChartCardState extends State<_LabsChartCard> {
                                 AppColors.ink.withValues(alpha: 0.88),
                             getTooltipItems: (items) {
                               return items.map((item) {
+                                if (item.barIndex == 1 && item.spotIndex == 0) {
+                                  return null;
+                                }
                                 final date = chartData.dateForX(item.x);
                                 final isForecast = item.barIndex == 1;
                                 return LineTooltipItem(
@@ -771,18 +774,6 @@ class _LabsChartCardState extends State<_LabsChartCard> {
               ],
             ),
           ),
-          if (chartData.forecastSpots.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.sm),
-            _ChartTextScope(
-              child: Text(
-                chartData.forecastNote,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.muted,
-                      height: 1.35,
-                    ),
-              ),
-            ),
-          ],
           const SizedBox(height: AppSpacing.sm),
           _ChartTextScope(
             child: Text(

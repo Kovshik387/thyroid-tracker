@@ -36,6 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   var _demoSleepDataEnabled = false;
   var _demoWeightDataEnabled = false;
   var _demoMedicationDataEnabled = false;
+  var _demoForecastDataEnabled = false;
   DateTime? _birthDate;
   TimeOfDay _intakeTime = const TimeOfDay(hour: 8, minute: 0);
 
@@ -54,6 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _demoSleepDataEnabled = appState.demoSleepDataEnabled;
     _demoWeightDataEnabled = appState.demoWeightDataEnabled;
     _demoMedicationDataEnabled = appState.demoMedicationDataEnabled;
+    _demoForecastDataEnabled = appState.demoForecastDataEnabled;
     _birthDate = appState.userProfile?.birthDate;
     _birthDateController.text =
         _birthDate == null ? '' : DateFormat('dd.MM.yyyy').format(_birthDate!);
@@ -256,6 +258,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: _demoMedicationDataEnabled,
                   onChanged: _toggleDemoMedicationData,
                 ),
+                const Divider(height: 1),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Проверка прогноза'),
+                  subtitle: const Text(
+                    'Добавить анализы и курсы дозировки для проверки прогноза на 6-8 недель',
+                  ),
+                  value: _demoForecastDataEnabled,
+                  onChanged: _toggleDemoForecastData,
+                ),
               ],
             ),
           ],
@@ -421,6 +433,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       value
           ? 'Тестовые данные приема добавлены'
           : 'Тестовые данные приема удалены',
+    );
+  }
+
+  Future<void> _toggleDemoForecastData(bool value) async {
+    setState(() => _demoForecastDataEnabled = value);
+    await AppScope.read(context).setDemoForecastDataEnabled(value);
+    if (!mounted) {
+      return;
+    }
+    showAdaptiveMessage(
+      context,
+      value
+          ? 'Тестовые данные прогноза добавлены'
+          : 'Тестовые данные прогноза удалены',
     );
   }
 }

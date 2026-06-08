@@ -59,6 +59,7 @@ class AppState extends ChangeNotifier {
   var _demoSleepDataEnabled = false;
   var _demoWeightDataEnabled = false;
   var _demoMedicationDataEnabled = false;
+  var _demoForecastDataEnabled = false;
   var _isSeedingDemoData = false;
   Object? _loadError;
   Future<void>? _loadFuture;
@@ -96,6 +97,8 @@ class AppState extends ChangeNotifier {
   bool get demoWeightDataEnabled => _demoWeightDataEnabled;
 
   bool get demoMedicationDataEnabled => _demoMedicationDataEnabled;
+
+  bool get demoForecastDataEnabled => _demoForecastDataEnabled;
 
   UnmodifiableListView<LabResult> get labs => UnmodifiableListView(_labs);
 
@@ -513,6 +516,7 @@ class AppState extends ChangeNotifier {
     _demoSleepDataEnabled = false;
     _demoWeightDataEnabled = false;
     _demoMedicationDataEnabled = false;
+    _demoForecastDataEnabled = false;
     _isLoaded = true;
     notifyListeners();
   }
@@ -622,6 +626,17 @@ class AppState extends ChangeNotifier {
     } else {
       await _database.deleteMedicationIntakesByIdPrefix('demo-intake-');
       await _database.deleteMedicationPlansByIdPrefix('demo-med-');
+    }
+    await _load();
+  }
+
+  Future<void> setDemoForecastDataEnabled(bool enabled) async {
+    await _database.saveSetting('demoForecastDataEnabled', enabled.toString());
+    if (enabled) {
+      await _seedDemoForecastData();
+    } else {
+      await _database.deleteLabResultsByIdPrefix('forecast-lab-');
+      await _database.deleteMedicationPlansByIdPrefix('forecast-med-');
     }
     await _load();
   }
@@ -866,6 +881,7 @@ class AppState extends ChangeNotifier {
     _demoWeightDataEnabled = settings['demoWeightDataEnabled'] == 'true';
     _demoMedicationDataEnabled =
         settings['demoMedicationDataEnabled'] == 'true';
+    _demoForecastDataEnabled = settings['demoForecastDataEnabled'] == 'true';
 
     const demoLabDataVersion = '2';
     if (_demoDataEnabled &&
@@ -897,6 +913,13 @@ class AppState extends ChangeNotifier {
     if (_demoMedicationDataEnabled &&
         intakes.every((intake) => !intake.id.startsWith('demo-intake-'))) {
       await _seedDemoMedicationIntakes();
+      _loadAgain = true;
+      return;
+    }
+
+    if (_demoForecastDataEnabled &&
+        labs.every((lab) => !lab.id.startsWith('forecast-lab-'))) {
+      await _seedDemoForecastData();
       _loadAgain = true;
       return;
     }
@@ -1154,6 +1177,78 @@ class AppState extends ChangeNotifier {
           takenAt: Value(takenAt),
           taken: true,
           countsForStreak: Value(date == today),
+        ),
+      );
+    }
+  }
+
+  Future<void> _seedDemoForecastData() async {
+    await _database.deleteLabResultsByIdPrefix('forecast-lab-');
+    await _database.deleteMedicationPlansByIdPrefix('forecast-med-');
+
+    final today = _dateOnly(DateTime.now());
+    final dates = [
+      today.subtract(const Duration(days: 210)),
+      today.subtract(const Duration(days: 168)),
+      today.subtract(const Duration(days: 126)),
+      today.subtract(const Duration(days: 84)),
+      today.subtract(const Duration(days: 42)),
+      today,
+    ];
+    final tshValues = [6.2, 5.4, 4.7, 5.2, 3.0, 0.8];
+    final freeT4Values = [8.9, 9.8, 10.6, 11.1, 12.3, 14.0];
+    final freeT3Values = [3.0, 3.1, 3.2, 3.3, 3.6, 3.9];
+
+    for (var index = 0; index < dates.length; index++) {
+      await _database.saveLabResult(
+        LabResultEntriesCompanion.insert(
+          id: 'forecast-lab-$index',
+          date: dates[index],
+          tsh: Value(tshValues[index]),
+          freeT4: Value(freeT4Values[index]),
+          freeT3: Value(freeT3Values[index]),
+          comment: const Value(
+            'Тестовый набор для проверки прогноза на 6-8 недель',
+          ),
+        ),
+      );
+    }
+
+    final courseStart = today.subtract(const Duration(days: 210));
+    final currentDoseStart = today.subtract(const Duration(days: 56));
+    final plannedDoseStart = today.add(const Duration(days: 28));
+    final courses = [
+      (
+        id: 'forecast-med-75',
+        dose: 75.0,
+        from: courseStart,
+        to: currentDoseStart.subtract(const Duration(days: 1)),
+      ),
+      (
+        id: 'forecast-med-88',
+        dose: 88.0,
+        from: currentDoseStart,
+        to: plannedDoseStart.subtract(const Duration(days: 1)),
+      ),
+      (
+        id: 'forecast-med-100',
+        dose: 100.0,
+        from: plannedDoseStart,
+        to: null as DateTime?,
+      ),
+    ];
+
+    for (final course in courses) {
+      await _database.saveMedicationPlan(
+        MedicationPlanEntriesCompanion.insert(
+          id: course.id,
+          name: 'Левотироксин',
+          dosage: '${_formatDemoDose(course.dose)} мкг',
+          doseMcg: Value(course.dose),
+          intakeTime: DateTime(today.year, today.month, today.day, 8),
+          startedAt: Value(course.from),
+          endedAt: Value(course.to),
+          note: const Value('Тестовый курс для проверки прогноза'),
         ),
       );
     }
