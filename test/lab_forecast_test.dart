@@ -51,4 +51,19 @@ void main() {
 
     expect(result.points, isEmpty);
   });
+
+  test('keeps sharply falling TSH forecast above display floor', () {
+    final result = const LabForecastEngine().predict(
+      const [
+        LabForecastSample(day: 0, value: 5.2),
+        LabForecastSample(day: 365, value: 3.0),
+        LabForecastSample(day: 730, value: 0.055),
+      ],
+      metric: LabForecastMetric.tsh,
+      medicationPlans: const [],
+      startDate: DateTime(2024, 1),
+    );
+
+    expect(result.points.last.value, greaterThanOrEqualTo(0.05));
+  });
 }

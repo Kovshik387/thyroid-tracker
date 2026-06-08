@@ -70,9 +70,13 @@ class LabForecastEngine {
       lastSampleDay: source.last.day,
     );
     final doseEffect = _doseCoefficient(metric) * doseChange;
-    final forecastValue =
-        (lastThree[2].value + trendWeight * trend + doseEffect)
-            .clamp(0.0, double.infinity);
+    final rawForecastValue =
+        lastThree[2].value + trendWeight * trend + doseEffect;
+    final forecastValue = _applyLowerLimit(
+      metric: metric,
+      currentValue: lastThree[2].value,
+      forecastValue: rawForecastValue,
+    );
     if (forecastValue.isNaN || forecastValue.isInfinite) {
       return const LabForecastResult(points: [], methodNote: '');
     }
@@ -86,7 +90,7 @@ class LabForecastEngine {
         ),
       ],
       methodNote:
-          'Модель на 6 недель: Xпрогноз = Xn + 0.7 * Trend + K * ΔDose. Trend берется по 3 последним анализам.',
+          'Модель прогноза: Xпрогноз = Xn + 0.7 * Trend + K * ΔDose. Trend берется по 3 последним анализам, нижний порог защищает от нулевых значений.',
       medicationNote: _medicationNote(
         metric: metric,
         doseChange: doseChange,
@@ -105,6 +109,25 @@ class LabForecastEngine {
       LabForecastMetric.freeT4 => 0.04,
       LabForecastMetric.freeT3 => 0.01,
     };
+  }
+
+  double _applyLowerLimit({
+    required LabForecastMetric metric,
+    required double currentValue,
+    required double forecastValue,
+  }) {
+    final lowerLimit = switch (metric) {
+      LabForecastMetric.tsh => 0.05,
+      LabForecastMetric.freeT4 => 1.0,
+      LabForecastMetric.freeT3 => 0.5,
+    };
+    if (forecastValue >= lowerLimit) {
+      return forecastValue;
+    }
+    if (currentValue <= lowerLimit) {
+      return lowerLimit;
+    }
+    return ((currentValue + lowerLimit) / 2).clamp(lowerLimit, double.infinity);
   }
 
   double _doseChange({

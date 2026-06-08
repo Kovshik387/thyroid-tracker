@@ -1065,7 +1065,9 @@ LabForecastResult _forecastSpots(
   required List<MedicationPlan> medicationPlans,
   required DateTime startDate,
 }) {
-  return const LabForecastEngine().predict(
+  return LabForecastEngine(
+    forecastHorizonDays: _forecastHorizonDaysForChart(source),
+  ).predict(
     source
         .map((spot) => LabForecastSample(day: spot.x, value: spot.y))
         .toList(),
@@ -1077,6 +1079,14 @@ LabForecastResult _forecastSpots(
     medicationPlans: medicationPlans,
     startDate: startDate,
   );
+}
+
+int _forecastHorizonDaysForChart(List<FlSpot> source) {
+  if (source.length < 2) {
+    return 42;
+  }
+  final span = source.last.x - source.first.x;
+  return span.isFinite ? (span * 0.14).clamp(42.0, 365.0).round() : 42;
 }
 
 double _intervalFor(double maxX, {int maxLabels = 6}) {
