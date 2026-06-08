@@ -90,7 +90,7 @@ class LabForecastEngine {
         ),
       ],
       methodNote:
-          'Модель прогноза: Xпрогноз = Xn + 0.7 * Trend + K * ΔDose. Trend берется по 3 последним анализам, нижний порог защищает от нулевых значений.',
+          'Прогноз на 6-8 недель: Xпрогноз = Xn + 0.7 * Trend. Trend берется по 3 последним анализам.',
       medicationNote: _medicationNote(
         metric: metric,
         doseChange: doseChange,

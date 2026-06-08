@@ -782,18 +782,6 @@ class _LabsChartCardState extends State<_LabsChartCard> {
                     ),
               ),
             ),
-            if (chartData.medicationNote != null) ...[
-              const SizedBox(height: AppSpacing.xs),
-              _ChartTextScope(
-                child: Text(
-                  chartData.medicationNote!,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.muted,
-                        height: 1.35,
-                      ),
-                ),
-              ),
-            ],
           ],
           const SizedBox(height: AppSpacing.sm),
           _ChartTextScope(
@@ -1082,11 +1070,7 @@ LabForecastResult _forecastSpots(
 }
 
 int _forecastHorizonDaysForChart(List<FlSpot> source) {
-  if (source.length < 2) {
-    return 42;
-  }
-  final span = source.last.x - source.first.x;
-  return span.isFinite ? (span * 0.14).clamp(42.0, 365.0).round() : 42;
+  return 56;
 }
 
 double _intervalFor(double maxX, {int maxLabels = 6}) {
