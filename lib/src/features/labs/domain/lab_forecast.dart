@@ -86,7 +86,7 @@ class LabForecastEngine {
         ),
       ],
       methodNote:
-          'Прогноз на 6 недель рассчитан по формуле: Xпрогноз = Xn + 0.7 * Trend + K * (DoseNew - DoseCurrent), где Trend - среднее изменение по трем последним анализам.',
+          'Модель на 6 недель: Xпрогноз = Xn + 0.7 * Trend + K * ΔDose. Trend берется по 3 последним анализам.',
       medicationNote: _medicationNote(
         metric: metric,
         doseChange: doseChange,

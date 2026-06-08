@@ -756,40 +756,54 @@ class _LabsChartCardState extends State<_LabsChartCard> {
               },
             ),
           const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.md,
-            runSpacing: AppSpacing.sm,
-            children: [
-              _LegendItem(color: AppColors.azure, label: _metric.label),
-              const _LegendItem(color: AppColors.mint, label: 'Границы нормы'),
-              if (chartData.forecastSpots.isNotEmpty)
-                const _LegendItem(color: AppColors.amber, label: 'Прогноз'),
-            ],
+          _ChartTextScope(
+            child: Wrap(
+              spacing: AppSpacing.md,
+              runSpacing: AppSpacing.sm,
+              children: [
+                _LegendItem(color: AppColors.azure, label: _metric.label),
+                const _LegendItem(
+                  color: AppColors.mint,
+                  label: 'Границы нормы',
+                ),
+                if (chartData.forecastSpots.isNotEmpty)
+                  const _LegendItem(color: AppColors.amber, label: 'Прогноз'),
+              ],
+            ),
           ),
           if (chartData.forecastSpots.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(
-              chartData.forecastNote,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.muted,
-                  ),
+            _ChartTextScope(
+              child: Text(
+                chartData.forecastNote,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.muted,
+                      height: 1.35,
+                    ),
+              ),
             ),
             if (chartData.medicationNote != null) ...[
               const SizedBox(height: AppSpacing.xs),
-              Text(
-                chartData.medicationNote!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.muted,
-                    ),
+              _ChartTextScope(
+                child: Text(
+                  chartData.medicationNote!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.muted,
+                        height: 1.35,
+                      ),
+                ),
               ),
             ],
           ],
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Норма: ${_formatMetricValue(range.min, _metric)}-${_formatMetricValue(range.max, _metric)} ${range.unit}.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.muted,
-                ),
+          _ChartTextScope(
+            child: Text(
+              'Норма: ${_formatMetricValue(range.min, _metric)}-${_formatMetricValue(range.max, _metric)} ${range.unit}.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.muted,
+                    height: 1.35,
+                  ),
+            ),
           ),
         ],
       ),
@@ -810,6 +824,7 @@ enum _ChartMetric {
 class _SingleMetricChartData {
   const _SingleMetricChartData({
     required this.startDate,
+    required this.contentMaxX,
     required this.minX,
     required this.maxX,
     required this.minY,
@@ -822,6 +837,7 @@ class _SingleMetricChartData {
   });
 
   final DateTime startDate;
+  final double contentMaxX;
   final double minX;
   final double maxX;
   final double minY;
@@ -864,6 +880,7 @@ class _SingleMetricChartData {
     if (rawSpots.isEmpty) {
       return _SingleMetricChartData(
         startDate: start,
+        contentMaxX: 1,
         minX: 0,
         maxX: 1,
         minY: range.min - 1,
@@ -895,14 +912,16 @@ class _SingleMetricChartData {
     final minY = (minValue - padding).clamp(0.0, double.infinity);
     final maxY = maxValue + padding;
     final dataMaxX = rawSpots.last.x;
-    final maxX = [
+    final contentMaxX = [
       dataMaxX,
       if (forecastSpots.isNotEmpty) forecastSpots.last.x,
       1.0,
     ].reduce((a, b) => a > b ? a : b);
+    final maxX = contentMaxX + _rightPaddingFor(contentMaxX);
 
     return _SingleMetricChartData(
       startDate: start,
+      contentMaxX: contentMaxX,
       minX: 0,
       maxX: maxX,
       minY: minY,
@@ -920,7 +939,7 @@ class _SingleMetricChartData {
   }
 
   double bottomTitleInterval({required int maxLabels}) {
-    return _intervalFor(maxX, maxLabels: maxLabels);
+    return _intervalFor(contentMaxX, maxLabels: maxLabels);
   }
 
   bool shouldHideBottomTitle(
@@ -928,10 +947,14 @@ class _SingleMetricChartData {
     required double interval,
   }) {
     const edgeTolerance = 0.001;
-    if (value <= minX + edgeTolerance || value >= maxX - edgeTolerance) {
+    if (value > contentMaxX + edgeTolerance) {
+      return true;
+    }
+    if (value <= minX + edgeTolerance || value >= contentMaxX - edgeTolerance) {
       return false;
     }
-    return value - minX < interval * 0.45 || maxX - value < interval * 0.72;
+    return value - minX < interval * 0.45 ||
+        contentMaxX - value < interval * 0.72;
   }
 }
 
@@ -969,6 +992,24 @@ class _BottomDateLabel extends StatelessWidget {
   }
 }
 
+class _ChartTextScope extends StatelessWidget {
+  const _ChartTextScope({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    return MediaQuery(
+      data: mediaQuery.copyWith(
+        boldText: false,
+        textScaler: TextScaler.noScaling,
+      ),
+      child: child,
+    );
+  }
+}
+
 class _LegendItem extends StatelessWidget {
   const _LegendItem({
     required this.color,
@@ -992,7 +1033,14 @@ class _LegendItem extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.xs),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.ink,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
       ],
     );
   }
@@ -1055,6 +1103,19 @@ double _intervalFor(double maxX, {int maxLabels = 6}) {
     }
   }
   return candidates.last;
+}
+
+double _rightPaddingFor(double maxX) {
+  if (maxX <= 14) {
+    return 2;
+  }
+  if (maxX <= 60) {
+    return 5;
+  }
+  if (maxX <= 180) {
+    return 10;
+  }
+  return (maxX * 0.06).clamp(14.0, 45.0);
 }
 
 DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
